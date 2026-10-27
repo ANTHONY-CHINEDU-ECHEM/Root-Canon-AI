@@ -1,0 +1,131 @@
+# Root Canon AI corpus definition.
+# Every entry here points at a real, public, authoritative source.
+# Volumes are the approximate number of records each query returns at the time
+# of writing; the pipeline streams them, so the full set never sits in memory.
+
+pubmed:
+  # Restricted to human studies in English, last 25 years, with an abstract.
+  base_filters: 'humans[mh] AND english[la] AND hasabstract AND ("2000/01/01"[dp] : "3000"[dp])'
+  queries:
+    caries_and_prevention:
+      term: '"Dental Caries"[mh] OR "Fluorides, Topical"[mh] OR "Pit and Fissure Sealants"[mh] OR "Cariostatic Agents"[mh]'
+    periodontology:
+      term: '"Periodontal Diseases"[mh] OR "Periodontitis"[mh] OR "Gingivitis"[mh] OR "Periodontal Debridement"[mh]'
+    endodontics:
+      term: '"Endodontics"[mh] OR "Root Canal Therapy"[mh] OR "Pulpitis"[mh] OR "Periapical Periodontitis"[mh]'
+    oral_surgery:
+      term: '"Tooth Extraction"[mh] OR "Molar, Third"[mh] OR "Dry Socket"[mh] OR "Surgery, Oral"[mh]'
+    implantology:
+      term: '"Dental Implants"[mh] OR "Peri-Implantitis"[mh] OR "Dental Implantation, Endosseous"[mh]'
+    restorative_and_prosthodontics:
+      term: '"Dental Restoration, Permanent"[mh] OR "Dental Prosthesis"[mh] OR "Crowns"[mh] OR "Composite Resins"[mh]'
+    oral_medicine_and_pathology:
+      term: '"Mouth Neoplasms"[mh] OR "Oral Lichen Planus"[mh] OR "Stomatitis"[mh] OR "Medication-Related Osteonecrosis of the Jaw"[mh]'
+    dental_pharmacology:
+      term: '"Anesthesia, Dental"[mh] OR ("Anti-Bacterial Agents"[mh] AND "Dentistry"[mh]) OR ("Analgesics"[mh] AND "Toothache"[mh])'
+    paediatric_dentistry:
+      term: '"Pediatric Dentistry"[mh] OR "Tooth, Deciduous"[mh] OR "Dental Anxiety"[mh]'
+    medically_compromised_patients:
+      term: '("Anticoagulants"[mh] OR "Bisphosphonate-Associated Osteonecrosis of the Jaw"[mh] OR "Endocarditis, Bacterial"[mh]) AND ("Dental Care"[mh] OR "Oral Surgical Procedures"[mh])'
+  # Systematic reviews and trials are fetched in a priority pass so the
+  # strongest evidence is indexed first even when a run is capped.
+  priority_publication_types:
+    - "Systematic Review[pt]"
+    - "Meta-Analysis[pt]"
+    - "Randomized Controlled Trial[pt]"
+    - "Practice Guideline[pt]"
+
+europepmc:
+  # Open access full text only, so we can lawfully index complete articles.
+  query: '(MESH:"Dentistry" OR MESH:"Stomatognathic Diseases") AND OPEN_ACCESS:Y AND LICENSE:"cc by" AND LANG:"eng" AND PUB_YEAR:[2010 TO 2026]'
+  include_full_text: true
+
+openfda:
+  # Generic names of medicines a UK dentist prescribes, administers or must
+  # recognise in a medical history. Labels are US public domain.
+  generic_names:
+    - amoxicillin
+    - phenoxymethylpenicillin
+    - metronidazole
+    - clarithromycin
+    - clindamycin
+    - doxycycline
+    - ibuprofen
+    - acetaminophen
+    - diclofenac
+    - lidocaine
+    - articaine
+    - mepivacaine
+    - prilocaine
+    - epinephrine
+    - chlorhexidine
+    - sodium fluoride
+    - fluconazole
+    - miconazole
+    - nystatin
+    - aciclovir
+    - midazolam
+    - diazepam
+    - warfarin
+    - apixaban
+    - rivaroxaban
+    - dabigatran
+    - edoxaban
+    - clopidogrel
+    - aspirin
+    - alendronate
+    - zoledronic acid
+    - denosumab
+    - methotrexate
+    - lithium
+    - glyceryl trinitrate
+    - salbutamol
+    - glucagon
+
+medlineplus:
+  topics:
+    - "Tooth Disorders"
+    - "Gum Disease"
+    - "Tooth Decay"
+    - "Dental Health"
+    - "Mouth Disorders"
+    - "Oral Cancer"
+    - "Dry Mouth"
+    - "Canker Sores"
+    - "Toothache"
+
+govuk:
+  # GOV.UK Content API, licensed under the Open Government Licence v3.0.
+  base_paths:
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-2-summary-guidance-tables-for-dental-teams
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-9-fluoride
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-5-periodontal-diseases
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-4-oral-hygiene
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-6-oral-cancer
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-10-healthier-eating
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-11-smoking-and-tobacco-use
+    - /government/publications/delivering-better-oral-health-an-evidence-based-toolkit-for-prevention/chapter-12-alcohol
+
+nice:
+  # Requires a free NICE Syndication API licence key (NICE_SYNDICATION_API_KEY).
+  guidance_ids:
+    - CG19    # Dental checks: intervals between oral health reviews
+    - CG64    # Prophylaxis against infective endocarditis
+    - NG30    # Oral health promotion: general dental practice
+    - NG48    # Oral health for adults in care homes
+    - PH55    # Oral health: local authorities and partners
+    - NG12    # Suspected cancer: recognition and referral (head and neck section)
+    - NG15    # Antimicrobial stewardship
+
+sdcep:
+  # SDCEP guidance is published by NHS Education for Scotland. Pages are fetched
+  # politely, robots.txt is honoured, and only the guidance body is retained.
+  # Review the SDCEP terms of use before redistributing an index built from it.
+  urls:
+    - https://sdcepdentalprescribing.nhs.scot/guidance/bacterial-infections/dental-abscess/first-line-antibiotics/amoxicillin
+    - https://sdcepdentalprescribing.nhs.scot/guidance/bacterial-infections/acute-periodontal-conditions/metronidazole/
+    - https://sdcepdentalprescribing.nhs.scot/guidance/bacterial-infections/infective-endocarditis/
+    - https://sdcepdentalprescribing.nhs.scot/guidance/odontogenic-pain/analgesics/ibuprofen/
+    - https://sdcepdentalprescribing.nhs.scot/guidance/odontogenic-pain/analgesics/paracetamol/
+    - https://sdcepdentalprescribing.nhs.scot/guidance/medical-emergencies/anaphylaxis/
+    - https://www.psm.sdcep.org.uk/topics/medical-emergencies-and-life-support/medical-emergency-drugs/

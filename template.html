@@ -1,0 +1,654 @@
+<title>Root Canon AI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,500;0,8..60,600;1,8..60,500&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: clinical workstation. Left rail of cases and filters, centre consult thread, right evidence tray.
+   Collapses to a single column on phones with the evidence tray under the thread. */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --sunk: #e8ecea;
+  --ink: #15242a;
+  --muted: #5a6a6f;
+  --line: #d3dbd8;
+  --accent: #a83a4f;          /* gingival rose: brand, focus, citations */
+  --accent-soft: #f6e4e8;
+  --guide: #2c6a57;           /* UK guidance green */
+  --guide-soft: #dff0e8;
+  --amber: #8a5a00;
+  --amber-soft: #fbefd5;
+  --alert: #b3261e;
+  --alert-soft: #fde4e1;
+  --alert-ink: #ffffff;
+  --shadow: 0 1px 2px rgba(21,36,42,.06), 0 8px 24px rgba(21,36,42,.06);
+  --font-display: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1719; --surface: #152125; --sunk: #1b2a2f; --ink: #e4ecea; --muted: #97a8ab; --line: #2a3b40;
+  --accent: #e48a9c; --accent-soft: #3a1f27; --guide: #7fcdb1; --guide-soft: #173229;
+  --amber: #f0c060; --amber-soft: #3a2d10; --alert: #ff8a80; --alert-soft: #3d1715; --alert-ink: #1a0b0a;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1719; --surface: #152125; --sunk: #1b2a2f; --ink: #e4ecea; --muted: #97a8ab; --line: #2a3b40;
+  --accent: #e48a9c; --accent-soft: #3a1f27; --guide: #7fcdb1; --guide-soft: #173229;
+  --amber: #f0c060; --amber-soft: #3a2d10; --alert: #ff8a80; --alert-soft: #3d1715; --alert-ink: #1a0b0a;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.top-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { flex: none; }
+.brand-name { font-family: var(--font-display); font-weight: 600; font-size: 21px; letter-spacing: -.01em; line-height: 1; }
+.brand-name em { font-style: italic; font-weight: 500; color: var(--accent); }
+.brand-sub { font-size: 11.5px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+nav.tabs { display: flex; gap: 4px; background: var(--sunk); padding: 3px; border-radius: 999px; }
+nav.tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-weight: 500; font-size: 13.5px; color: var(--muted); }
+nav.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.top-meta { margin-left: auto; display: flex; gap: 10px; align-items: center; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--surface); white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--guide); }
+
+main { max-width: 1440px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.view[hidden] { display: none !important; }
+.workspace { display: grid; grid-template-columns: 260px minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+@media (max-width: 1180px) { .workspace { grid-template-columns: 240px minmax(0, 1fr); } .tray { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .workspace { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.rail { display: flex; flex-direction: column; gap: 14px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); }
+@media (max-width: 760px) { .rail { position: static; } }
+.rail .panel { padding: 14px; }
+.label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+.cases { display: flex; flex-direction: column; gap: 6px; }
+.case { text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 13px; line-height: 1.4; }
+.case:hover { border-color: var(--accent); }
+.case small { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+.case.urgent small { color: var(--alert); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+select, input[type="number"], input[type="text"] { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; cursor: pointer; }
+.provider { display: grid; gap: 6px; }
+.provider label { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.provider label small { margin-left: auto; color: var(--muted); font-size: 11px; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+.thread { display: flex; flex-direction: column; min-height: 70vh; }
+.thread-head { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.thread-head h1 { font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0; text-wrap: balance; }
+.thread-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.messages { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 18px; overflow-wrap: anywhere; }
+.msg-q { align-self: flex-end; max-width: 85%; background: var(--sunk); border-radius: 14px 14px 4px 14px; padding: 10px 14px; }
+.msg-q .redact { display: block; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.msg-a { display: flex; flex-direction: column; gap: 10px; max-width: 100%; }
+.who { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.who b { color: var(--ink); font-weight: 600; }
+.banner { border-radius: 8px; background: var(--alert); color: var(--alert-ink); padding: 12px 14px; display: grid; gap: 4px; }
+.banner strong { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.answer { font-size: 15.5px; line-height: 1.65; max-width: 68ch; }
+.answer p { margin: 0 0 10px; }
+.answer ul { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 6px; }
+.answer .judgement { border-left: 3px solid var(--amber); background: var(--amber-soft); padding: 8px 12px; border-radius: 0 8px 8px 0; font-size: 14px; }
+.cite { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px; padding: 0 5px; margin: 0 1px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font: 600 11px var(--font-mono); vertical-align: 2px; cursor: pointer; border: 0; }
+.cite:hover { background: var(--accent); color: var(--surface); }
+.checks { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 11.5px; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); color: var(--muted); background: var(--surface); }
+.chip.ok { border-color: transparent; background: var(--guide-soft); color: var(--guide); }
+.chip.warn { border-color: transparent; background: var(--amber-soft); color: var(--amber); }
+.caret { display: inline-block; width: 8px; height: 1em; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.composer { border-top: 1px solid var(--line); padding: 12px; display: flex; gap: 8px; align-items: flex-end; }
+.composer textarea { flex: 1; min-width: 0; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); min-height: 46px; max-height: 160px; }
+.btn { border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 600; cursor: pointer; background: var(--ink); color: var(--surface); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.empty { color: var(--muted); font-size: 14px; max-width: 60ch; }
+
+.tray { display: flex; flex-direction: column; gap: 12px; }
+.tray-head { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 14px 0; }
+.tray-head h2 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.sources { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.src { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; background: var(--bg); transition: border-color .2s, box-shadow .2s; }
+.src.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.src-top { display: flex; gap: 8px; align-items: flex-start; }
+.src-n { flex: none; font: 600 12px var(--font-mono); color: var(--accent); background: var(--accent-soft); border-radius: 5px; padding: 1px 6px; }
+.src-title { font-weight: 600; font-size: 13.5px; line-height: 1.35; }
+.src-title a { color: inherit; text-decoration: none; }
+.src-title a:hover { text-decoration: underline; color: var(--accent); }
+.src-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 11.5px; color: var(--muted); }
+.ev { border-radius: 4px; padding: 1px 6px; font-weight: 600; font-size: 11px; }
+.ev-6 { background: var(--guide-soft); color: var(--guide); }
+.ev-5, .ev-4 { background: var(--accent-soft); color: var(--accent); }
+.ev-low { background: var(--sunk); color: var(--muted); }
+.src-snip { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.ladder { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 2px; }
+.ladder i { height: 4px; border-radius: 2px; background: var(--line); }
+.ladder i.on { background: var(--guide); }
+.trace { padding: 12px 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.trace div { background: var(--bg); border-radius: 8px; padding: 8px; }
+.trace b { display: block; font: 600 15px var(--font-mono); font-variant-numeric: tabular-nums; }
+.trace span { font-size: 11px; color: var(--muted); }
+
+/* Tools */
+.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 900px) { .tools { grid-template-columns: minmax(0, 1fr); } }
+.tool { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.tool h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 20px; }
+.tool .sub { margin: -8px 0 0; color: var(--muted); font-size: 13px; }
+.row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.result { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 8px; }
+.big { font: 600 26px var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 12px; font-size: 13.5px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.meter { height: 10px; background: var(--sunk); border-radius: 999px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--guide); border-radius: 999px; transition: width .4s; }
+.drugs { display: flex; flex-wrap: wrap; gap: 6px; }
+.drugs label { cursor: pointer; }
+.drugs input { position: absolute; opacity: 0; pointer-events: none; }
+.drugs span { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-size: 13px; background: var(--bg); }
+.drugs input:checked + span { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.drugs input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ix { border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; font-size: 13.5px; }
+.ix.major { background: var(--alert-soft); }
+.ix.major b { color: var(--alert); }
+.ix.moderate { background: var(--amber-soft); }
+.ix.moderate b { color: var(--amber); }
+.verify { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+
+/* Library */
+.lib-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.lib-head h1 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; }
+.lib-head p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--sunk); }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.scale { margin-top: 18px; padding: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .scale { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.scale div b { display: block; font: 600 20px var(--font-mono); }
+.scale div span { font-size: 12px; color: var(--muted); }
+footer { max-width: 1440px; margin: 0 auto; padding-block: 0 30px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="0.5" y="0.5" width="33" height="33" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        <path d="M10 9c2.2-1.6 4.4-.9 7 0 2.6-.9 4.8-1.6 7 0 1.6 1.3 1.6 4.2.7 7-.8 2.5-1.2 4.6-1.6 7.4-.3 2.1-2.4 2.3-2.9.3-.5-2-1-4.3-3.2-4.3s-2.7 2.3-3.2 4.3c-.5 2-2.6 1.8-2.9-.3-.4-2.8-.8-4.9-1.6-7.4-.9-2.8-.9-5.7.7-7Z" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M14.5 13.5h5M17 11v5" stroke="var(--guide)" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div class="brand-name">Root Canon <em>AI</em></div>
+        <div class="brand-sub">UK dental decision support</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-assistant" aria-selected="true" data-view="assistant">Assistant</button>
+      <button role="tab" id="tab-tools" aria-selected="false" data-view="tools">Clinical tools</button>
+      <button role="tab" id="tab-library" aria-selected="false" data-view="library">Knowledge base</button>
+    </nav>
+    <div class="top-meta">
+      <span class="pill"><span class="dot"></span><span id="indexStat">Index ready</span></span>
+      <span class="pill">Jurisdiction <b>UK</b></span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ASSISTANT -->
+  <section class="view" id="view-assistant">
+    <div class="workspace">
+      <aside class="rail">
+        <div class="panel">
+          <p class="label">Example consults</p>
+          <div class="cases" id="cases"></div>
+        </div>
+        <div class="panel">
+          <p class="label">Evidence filter</p>
+          <label class="check"><input type="checkbox" id="fGuide"> UK national guidance only</label>
+          <label class="check"><input type="checkbox" id="fRecent"> Published 2015 or later</label>
+        </div>
+        <div class="panel">
+          <p class="label">Language model</p>
+          <div class="provider">
+            <label><input type="radio" name="prov" id="pClaude" value="anthropic" checked> Claude <small>default</small></label>
+            <label><input type="radio" name="prov" id="pOpenAI" value="openai"> OpenAI <small>switchable</small></label>
+            <label><input type="radio" name="prov" id="pOllama" value="ollama"> Ollama <small>on premises</small></label>
+          </div>
+          <p class="note" style="margin:10px 0 0">This public demo runs entirely in your browser, so answers are extractive summaries of the retrieved guidance. The deployed service writes them with the selected model under the same citation checks.</p>
+        </div>
+      </aside>
+
+      <section class="panel thread" aria-label="Consultation">
+        <div class="thread-head">
+          <h1>Ask a clinical question</h1>
+          <p>Every statement is tied to a numbered UK source. Identifiers are redacted before retrieval.</p>
+        </div>
+        <div class="messages" id="messages" aria-live="polite"></div>
+        <form class="composer" id="composer">
+          <label for="q" style="position:absolute;left:-9999px">Question</label>
+          <textarea id="q" rows="1" placeholder="e.g. Patient on apixaban needs a surgical extraction. What should they do with their dose?"></textarea>
+          <button class="btn" id="send" type="submit">Ask</button>
+        </form>
+      </section>
+
+      <aside class="tray">
+        <div class="panel">
+          <div class="tray-head"><h2>Evidence</h2><span class="note" id="srcCount">No sources yet</span></div>
+          <div class="sources" id="sources"><p class="note" style="margin:0">Retrieved passages appear here with their evidence grade, so you can check each citation against the original.</p></div>
+        </div>
+        <div class="panel">
+          <div class="tray-head"><h2>Retrieval trace</h2></div>
+          <div class="trace" id="trace">
+            <div><b>0</b><span>passages scored</span></div>
+            <div><b>0</b><span>cited</span></div>
+            <div><b>0 ms</b><span>end to end</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- TOOLS -->
+  <section class="view" id="view-tools" hidden>
+    <div class="tools">
+      <div class="panel tool">
+        <h2>Prescribing regimen</h2>
+        <p class="sub">SDCEP dental regimens, looked up deterministically. Doses never come from the language model.</p>
+        <div class="row">
+          <div class="field"><label class="label" for="rDrug">Drug</label><select id="rDrug"></select></div>
+          <div class="field"><label class="label" for="rAge">Age in years</label><input type="number" id="rAge" min="0" max="110" step="0.5" value="34"></div>
+        </div>
+        <div class="result" id="rOut"></div>
+      </div>
+
+      <div class="panel tool">
+        <h2>Local anaesthetic ceiling</h2>
+        <p class="sub">Maximum dose by weight, shown in mg, mL and 2.2 mL cartridges.</p>
+        <div class="row">
+          <div class="field"><label class="label" for="laProd">Product</label><select id="laProd"></select></div>
+          <div class="field"><label class="label" for="laWt">Weight in kg</label><input type="number" id="laWt" min="3" max="250" step="1" value="22"></div>
+        </div>
+        <div class="result" id="laOut"></div>
+      </div>
+
+      <div class="panel tool">
+        <h2>Anaphylaxis: adrenaline</h2>
+        <p class="sub">Resuscitation Council UK intramuscular dose of adrenaline 1:1000 by age.</p>
+        <div class="field"><label class="label" for="adAge">Age in years</label><input type="number" id="adAge" min="0" max="110" step="1" value="8"></div>
+        <div class="result" id="adOut"></div>
+      </div>
+
+      <div class="panel tool">
+        <h2>Interaction check</h2>
+        <p class="sub">Select what you plan to prescribe and what the patient already takes.</p>
+        <div class="drugs" id="ixDrugs"></div>
+        <div id="ixOut" style="display:grid;gap:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="view" id="view-library" hidden>
+    <div class="lib-head">
+      <div>
+        <h1>Knowledge base</h1>
+        <p>The demo runs on the bundled UK guidance seed set. The production pipeline adds PubMed, Europe PMC open access full text, NICE syndication, openFDA labels and MedlinePlus, deduplicated and graded.</p>
+      </div>
+    </div>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>Source</th><th>Publisher</th><th>Grade</th><th>Year</th><th>Licence</th><th>Passages</th></tr></thead>
+        <tbody id="libRows"></tbody>
+      </table>
+    </div>
+    <div class="panel scale">
+      <div><b>7</b><span>live source connectors</span></div>
+      <div><b>10</b><span>PubMed MeSH query families</span></div>
+      <div><b>37</b><span>dental medicines tracked in openFDA</span></div>
+      <div><b>6</b><span>evidence grades, guidance at the top</span></div>
+    </div>
+  </section>
+</main>
+<footer>Root Canon AI supports registered dental professionals and does not replace clinical judgement. Confirm doses against the current BNF or BNFC. Guidance summaries are paraphrased; follow each link for the authoritative text.</footer>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+/* ---------- text utilities ---------- */
+const STOP = new Set("a an and are as at be by for from has have in is it its of on or that the this to was were will with which what when how should can does do i my me patient patients they their them our we you your there any if".split(" "));
+const ABBR = { mronj: "medication related osteonecrosis jaw", ie: "infective endocarditis", la: "local anaesthetic", nsaid: "non steroidal anti inflammatory", nsaids: "non steroidal anti inflammatory", doac: "direct oral anticoagulant", doacs: "direct oral anticoagulant", inr: "international normalised ratio", gtn: "glyceryl trinitrate", hypo: "hypoglycaemia glucose", warfarin: "anticoagulant", apixaban: "anticoagulant", rivaroxaban: "anticoagulant", dabigatran: "anticoagulant", edoxaban: "anticoagulant", ibuprofen: "non steroidal anti inflammatory", diclofenac: "non steroidal anti inflammatory" };
+function tokenize(text) {
+  const out = [];
+  const re = /\d+(?:[.,:]\d+)*\s?(?:mg|g|ml|ppm|microgram|%)?|[a-z][a-z0-9]*/g;
+  for (const m of text.toLowerCase().matchAll(re)) {
+    const t = m[0].replace(/[ ,]/g, "");
+    if (STOP.has(t) || (t.length < 2 && !/^\d+$/.test(t))) continue;
+    out.push(t);
+    if (ABBR[t]) out.push(...ABBR[t].split(" "));
+    else if (t.endsWith("s") && t.length > 4) out.push(t.slice(0, -1));
+  }
+  return out;
+}
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---------- BM25 index over the passages ---------- */
+const chunks = DATA.chunks;
+const docLen = [], postings = new Map();
+chunks.forEach((c, i) => {
+  const toks = tokenize(`${c.title} ${c.title} ${c.section || ""} ${c.text}`);
+  docLen.push(toks.length);
+  const counts = new Map();
+  toks.forEach(t => counts.set(t, (counts.get(t) || 0) + 1));
+  counts.forEach((f, t) => { if (!postings.has(t)) postings.set(t, []); postings.get(t).push([i, f]); });
+});
+const N = chunks.length, avgLen = docLen.reduce((a, b) => a + b, 0) / N;
+const idf = t => { const p = postings.get(t); return p ? Math.log(1 + (N - p.length + 0.5) / (p.length + 0.5)) : 0; };
+function bm25(query) {
+  const scores = new Float64Array(N);
+  for (const t of new Set(tokenize(query))) {
+    const p = postings.get(t); if (!p) continue;
+    const w = idf(t);
+    for (const [i, f] of p) scores[i] += w * f * 2.4 / (f + 1.4 * (1 - .72 + .72 * docLen[i] / avgLen));
+  }
+  return scores;
+}
+
+/* ---------- guardrails, ported from the Python service ---------- */
+const EMERGENCY = [
+  { title: "Suspected anaphylaxis", re: [/anaphyla/i, /(throat|tongue|lip)s?\b.{0,25}\b(swell|swollen|tight)/i, /hives?.{0,40}(wheez|breath)/i],
+    action: "Call 999. Lie the patient flat with legs raised, or sit up if breathing is difficult. Give adrenaline 1:1000 intramuscularly into the anterolateral thigh at the dose for age and repeat after 5 minutes if there is no improvement. Give high flow oxygen.", hint: "anaphylaxis adrenaline intramuscular dose" },
+  { title: "Collapse, unresponsive or not breathing normally", re: [/cardiac arrest/i, /not breathing/i, /no pulse/i, /unresponsive/i],
+    action: "Call 999 and request an AED. Start CPR at 30 compressions to 2 breaths and attach the AED as soon as it arrives.", hint: "emergency ABCDE" },
+  { title: "Chest pain of possible cardiac origin", re: [/chest pain/i, /angina/i, /heart attack/i],
+    action: "Stop treatment and give glyceryl trinitrate spray sublingually. If pain is not relieved, call 999 and give aspirin 300 mg dispersible to chew unless allergic.", hint: "glyceryl trinitrate aspirin emergency drugs" },
+  { title: "Suspected hypoglycaemia", re: [/hypo(glyc|\b)/i, /low (blood )?sugar/i, /diabetic.{0,30}(confused|drowsy|sweat|shak)/i],
+    action: "If cooperative, give quick acting oral glucose. If unable to swallow safely, give glucagon 1 mg intramuscularly and call 999.", hint: "oral glucose glucagon emergency drugs" },
+  { title: "Prolonged or repeated seizure", re: [/seizure/i, /fitting/i, /convuls/i],
+    action: "Protect from injury and do not restrain. If convulsion lasts 5 minutes or longer, give buccal midazolam at the dose for age and call 999.", hint: "buccal midazolam emergency drugs" },
+  { title: "Spreading infection threatening the airway", re: [/(swelling|cellulitis).{0,60}(eye|floor of (the )?mouth|neck|difficulty (breathing|swallowing))/i, /ludwig/i],
+    action: "Treat as an emergency and arrange same day referral to oral and maxillofacial surgery or the emergency department. Airway compromise needs a 999 call.", hint: "spreading infection antibiotics" },
+];
+const DENTAL = /\b(dent|tooth|teeth|molar|caries|decay|gum|gingiv|periodon|pulp|endodon|root canal|extract|implant|crown|denture|filling|restor|abscess|toothache|oral|mouth|jaw|fluorid|toothpaste|varnish|anaesthe|anesthe|lidocaine|articaine|adrenaline|amoxicillin|penicillin|metronidazole|clindamycin|ibuprofen|paracetamol|analges|antibiot|anticoag|warfarin|apixaban|rivaroxaban|dabigatran|edoxaban|bisphosphonate|alendronate|denosumab|mronj|endocarditis|prophyla|bleed|socket|recall|nice|sdcep|anaphyla|seizure|hypo|angina|faint|valve|emergency|glucose|inr|scale|polish|ulcer|patch|lesion)/i;
+
+function validNHS(d) {
+  if (!/^\d{10}$/.test(d)) return false;
+  let s = 0; for (let i = 0; i < 9; i++) s += +d[i] * (10 - i);
+  let c = 11 - (s % 11); if (c === 11) c = 0;
+  return c !== 10 && c === +d[9];
+}
+function redact(text) {
+  const found = {};
+  const bump = k => found[k] = (found[k] || 0) + 1;
+  text = text.replace(/\b(\d{3}) ?(\d{3}) ?(\d{4})\b/g, (m, a, b, c) => validNHS(a + b + c) ? (bump("NHS number"), "[NHS_NUMBER]") : m);
+  const rules = [
+    ["email", /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, "[EMAIL]"],
+    ["phone", /(?<!\d)(?:\+44\s?7\d{3}|07\d{3})\s?\d{3}\s?\d{3}(?!\d)/g, "[PHONE]"],
+    ["postcode", /\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi, "[POSTCODE]"],
+    ["date of birth", /\b(?:dob|date of birth|born)[:\s]*\d{1,2}[/.]\d{1,2}[/.]\d{2,4}\b/gi, "[DATE_OF_BIRTH]"],
+    ["name", /\b(?:Mr|Mrs|Ms|Miss|Mx|Dr)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g, "[NAME]"],
+  ];
+  for (const [k, re, rep] of rules) text = text.replace(re, () => (bump(k), rep));
+  return { text, found };
+}
+
+/* ---------- retrieval with clinical priors ---------- */
+function retrieve(query, filters) {
+  const raw = bm25(query);
+  const max = Math.max(...raw, 1e-9);
+  const year = 2026;
+  const ranked = chunks.map((c, i) => {
+    const base = raw[i] / max;
+    const ev = c.evidence_level / 6;
+    const rec = c.year ? Math.pow(.5, Math.max(0, year - c.year) / 8) : .3;
+    return { c, i, base, score: base * .8 + .15 * ev + .05 * rec + (c.jurisdiction === "UK" ? .05 : 0) };
+  }).filter(r => r.base > 0)
+    .filter(r => !filters.guide || r.c.evidence_level === 6)
+    .filter(r => !filters.recent || (r.c.year || 0) >= 2015)
+    .sort((a, b) => b.score - a.score);
+  const perDoc = {}, out = [];
+  for (const r of ranked) {
+    if ((perDoc[r.c.doc_id] || 0) >= 2) continue;
+    perDoc[r.c.doc_id] = (perDoc[r.c.doc_id] || 0) + 1;
+    out.push(r); if (out.length >= 5) break;
+  }
+  return { results: out, scored: ranked.length };
+}
+
+/* ---------- extractive grounded composer ---------- */
+const NUM = /\b(\d+(?:[.,]\d+)?)\s?(mg|g|ml|mL|micrograms?|ppm|%|months?|days?|hours?|years?)\b/gi;
+function compose(question, results) {
+  const qList = tokenize(question), qTerms = new Set(qList);
+  const words = question.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w && !STOP.has(w));
+  const phrases = words.slice(1).map((w, i) => words[i] + " " + w);
+  const floor = results[0].score * .7;
+  const wantsDose = /\b(dose|dosage|regimen|how much|mg|how often|frequency)\b/i.test(question);
+  const child = /\b(child|children|paediatric|infant|\d+\s?(year|month)s? old)\b/i.test(question);
+  const cands = [];
+  results.forEach((r, k) => {
+    if (r.score < floor) return;
+    r.c.text.split(/(?<=[.!?])\s+(?=[A-Z0-9])/).forEach(s => {
+      const st = new Set(tokenize(s)), low = s.toLowerCase();
+      let sc = 0; qTerms.forEach(t => { if (st.has(t)) sc += idf(t); });
+      phrases.forEach(ph => { if (low.includes(ph)) sc += 5; });
+      if (wantsDose && /\d+(\.\d+)?\s?(mg|g|ml|micrograms?)\b/i.test(s)) sc += 4;
+      if (child && /\b(child|children|years?:|months)\b/i.test(s)) sc += 4;
+      if (child && /\badult/i.test(s) && !/child/i.test(s)) sc *= .4;
+      if (sc > 0 && s.length > 30) cands.push({ s: s.trim(), id: k + 1, sc: sc * r.score });
+    });
+  });
+  if (!cands.length) return null;
+  cands.sort((a, b) => b.sc - a.sc);
+  const top = cands[0].sc;
+  const kept = []; const seen = new Set();
+  for (const c of cands) {
+    if (c.sc < top * .5 || kept.length >= 4) break;
+    if (seen.has(c.s)) continue; seen.add(c.s); kept.push(c);
+  }
+  const lead = kept[0];
+  const rest = kept.slice(1).sort((a, b) => a.id - b.id);
+  const allText = kept.map(k => k.s).join(" ");
+  const cited = new Set(kept.map(k => k.id));
+  const srcText = [...cited].map(i => results[i - 1].c.text).join(" ");
+  const norm = (v, u) => v.replace(",", "") + u.toLowerCase().replace(/s$/, "");
+  const srcNums = new Set([...srcText.matchAll(NUM)].map(m => norm(m[1], m[2])));
+  const unsupported = [...allText.matchAll(NUM)].filter(m => !srcNums.has(norm(m[1], m[2]))).map(m => m[0]);
+  const factors = judgementFor(question + " " + allText);
+  return { lead, rest, cited: [...cited], coverage: 1, unsupported, factors };
+}
+function judgementFor(t) {
+  const f = [];
+  if (/child|year old|paediatric|age/i.test(t)) f.push("exact age and weight");
+  if (/antibiot|amoxicillin|penicillin|metronidazole|clindamycin/i.test(t)) f.push("penicillin allergy and current medicines");
+  if (/anticoag|warfarin|apixaban|rivaroxaban|bleed|ibuprofen/i.test(t)) f.push("bleeding risk of the procedure and renal function");
+  if (/pregnan/i.test(t)) f.push("pregnancy or breastfeeding");
+  if (/endocarditis|valve|prophyla/i.test(t)) f.push("the cardiologist's documented advice");
+  if (/fluorid|varnish|toothpaste|recall/i.test(t)) f.push("individual caries risk at this review");
+  if (/mronj|bisphosph|alendronate|denosumab/i.test(t)) f.push("indication, duration and route of the antiresorptive");
+  if (!f.length) f.push("the full medical history and examination findings");
+  return f;
+}
+const withCites = (s, id) => `${esc(s.replace(/\.$/, ""))} <button class="cite" data-src="${id}" aria-label="Source ${id}">${id}</button>.`;
+
+/* ---------- UI wiring ---------- */
+const $ = id => document.getElementById(id);
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+$("indexStat").textContent = `${DATA.docs.length} guidance documents, ${chunks.length} passages`;
+
+const CASES = [
+  { tag: "Medically compromised", q: "Patient on apixaban twice daily needs a surgical extraction. What should they do with their dose?" },
+  { tag: "Prescribing", q: "First choice antibiotic for a spreading dental abscess in an adult who is not allergic to penicillin?" },
+  { tag: "Paediatric", q: "Amoxicillin dose for a dental abscess in a 3 year old" },
+  { tag: "Cardiology", q: "Does a patient with a prosthetic heart valve need antibiotic prophylaxis before an extraction?" },
+  { tag: "Prevention", q: "What fluoride toothpaste should a 2 year old use, and how often should varnish be applied once they are 3?" },
+  { tag: "Urgent", urgent: true, q: "Mrs Jane Doe, NHS 943 476 5919, has swollen lips and wheeze after local anaesthetic. Suspected anaphylaxis, adrenaline dose?" },
+  { tag: "Oral medicine", q: "When should I urgently refer a red and white patch in the mouth?" },
+];
+$("cases").innerHTML = CASES.map((c, i) => `<button class="case${c.urgent ? " urgent" : ""}" data-i="${i}"><small>${c.tag}</small>${esc(c.q)}</button>`).join("");
+$("cases").addEventListener("click", e => { const b = e.target.closest(".case"); if (b) ask(CASES[+b.dataset.i].q); });
+
+const messages = $("messages");
+messages.innerHTML = `<p class="empty">Choose an example consult on the left or type your own question. Try a medically compromised patient, a prescribing question, or an emergency to see the triage banner.</p>`;
+const history = [];
+let busy = false;
+
+function renderSources(results) {
+  $("srcCount").textContent = results.length ? `${results.length} passages` : "No sources";
+  $("sources").innerHTML = results.length ? results.map((r, k) => {
+    const c = r.c, lvl = c.evidence_level;
+    const evCls = lvl === 6 ? "ev-6" : lvl >= 4 ? "ev-5" : "ev-low";
+    return `<article class="src" id="src-${k + 1}">
+      <div class="src-top"><span class="src-n">${k + 1}</span><div class="src-title"><a href="${c.url}" target="_blank" rel="noopener">${esc(c.title)}</a></div></div>
+      <div class="src-meta"><span class="ev ${evCls}">${esc(c.evidence)}</span><span>${esc(c.section || "")}</span><span class="mono">${c.year || ""}</span><span class="mono">score ${r.score.toFixed(2)}</span></div>
+      <div class="ladder" aria-label="Evidence grade ${lvl} of 6">${[1,2,3,4,5,6].map(n => `<i class="${n <= lvl ? "on" : ""}"></i>`).join("")}</div>
+      <div class="src-snip">${esc(c.text.slice(0, 260))}${c.text.length > 260 ? "…" : ""}</div>
+    </article>`;
+  }).join("") : `<p class="note" style="margin:0">Nothing in the knowledge base matched closely enough to cite.</p>`;
+}
+function renderTrace(scored, cited, ms) {
+  $("trace").innerHTML = `<div><b>${scored}</b><span>passages scored</span></div><div><b>${cited}</b><span>cited</span></div><div><b>${ms} ms</b><span>end to end</span></div>`;
+}
+messages.addEventListener("click", e => {
+  const b = e.target.closest(".cite"); if (!b) return;
+  const el = $("src-" + b.dataset.src); if (!el) return;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1400);
+});
+
+async function typeInto(el, html) {
+  if (reduce) { el.innerHTML = html; return; }
+  const parts = html.split(/(<[^>]+>[^<]*<\/[^>]+>|\s+)/).filter(Boolean);
+  let acc = "";
+  for (const p of parts) { acc += p; el.innerHTML = acc + '<span class="caret"></span>'; await new Promise(r => setTimeout(r, p.trim() ? 14 : 0)); }
+  el.innerHTML = acc;
+}
+
+async function ask(raw) {
+  raw = raw.trim(); if (!raw || busy) return;
+  busy = true; $("send").disabled = true;
+  if (messages.querySelector(".empty")) messages.innerHTML = "";
+  const t0 = performance.now();
+  const { text, found } = redact(raw);
+  const redNote = Object.keys(found).length ? `<span class="redact">Redacted before processing: ${Object.entries(found).map(([k, v]) => `${k}${v > 1 ? " ×" + v : ""}`).join(", ")}</span>` : "";
+  messages.insertAdjacentHTML("beforeend", `<div class="msg-q">${esc(text)}${redNote}</div>`);
+  const wrap = document.createElement("div"); wrap.className = "msg-a";
+  const prov = document.querySelector('input[name="prov"]:checked').value;
+  const provName = { anthropic: "Claude", openai: "OpenAI", ollama: "Ollama" }[prov];
+  wrap.innerHTML = `<div class="who"><b>Root Canon AI</b><span>demo mode · extractive · deployed with ${provName}</span></div>`;
+  messages.appendChild(wrap);
+
+  const triage = EMERGENCY.filter(r => r.re.some(re => re.test(text)));
+  if (triage.length) wrap.insertAdjacentHTML("beforeend", triage.map(r => `<div class="banner" role="alert"><strong>${esc(r.title)}</strong><span>${esc(r.action)}</span></div>`).join(""));
+
+  const ctx = text.split(/\s+/).length < 8 && history.length ? history.slice(-1)[0] + " " : "";
+  if (!triage.length && !DENTAL.test(text) && !DENTAL.test(ctx)) {
+    wrap.insertAdjacentHTML("beforeend", `<div class="answer"><p>Root Canon AI answers dental clinical questions and the medical issues that change dental care. Please rephrase your question in a dental context.</p></div>`);
+    renderSources([]); renderTrace(0, 0, Math.round(performance.now() - t0)); busy = false; $("send").disabled = false; return;
+  }
+  const query = ctx + text + " " + triage.map(r => r.hint).join(" ");
+  const { results, scored } = retrieve(query, { guide: $("fGuide").checked, recent: $("fRecent").checked });
+  renderSources(results);
+  const out = results.length && results[0].score > .25 ? compose(query, results) : null;
+  const ans = document.createElement("div"); ans.className = "answer"; wrap.appendChild(ans);
+  if (!out) {
+    ans.innerHTML = `<p>I could not find enough evidence in the knowledge base to answer this safely. Please consult the current BNF, SDCEP guidance or NICE directly, or add more clinical detail.</p>`;
+    wrap.insertAdjacentHTML("beforeend", `<div class="checks"><span class="chip warn">Abstained: evidence below threshold</span></div>`);
+  } else {
+    let html = `<p>${withCites(out.lead.s, out.lead.id)}</p>`;
+    if (out.rest.length) html += `<ul>${out.rest.map(r => `<li>${withCites(r.s, r.id)}</li>`).join("")}</ul>`;
+    html += `<p class="judgement"><b>Clinical judgement:</b> confirm ${esc(out.factors.join(", "))} before acting.</p>`;
+    await typeInto(ans, html);
+    const ms = Math.round(performance.now() - t0);
+    wrap.insertAdjacentHTML("beforeend", `<div class="checks">
+      <span class="chip ok">Citation coverage 100%</span>
+      <span class="chip ${out.unsupported.length ? "warn" : "ok"}">${out.unsupported.length ? "Unverified figures: " + esc(out.unsupported.join(", ")) : "All figures matched to sources"}</span>
+      <span class="chip">${out.cited.length} of ${results.length} sources cited</span></div>`);
+    renderTrace(scored, out.cited.length, ms);
+  }
+  if (!out) renderTrace(scored, 0, Math.round(performance.now() - t0));
+  history.push(text);
+  wrap.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+  busy = false; $("send").disabled = false;
+}
+
+$("composer").addEventListener("submit", e => { e.preventDefault(); const v = $("q").value; $("q").value = ""; ask(v); });
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("composer").requestSubmit(); } });
+
+/* ---------- tabs ---------- */
+document.querySelector("nav.tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-view]"); if (!b) return;
+  document.querySelectorAll("nav.tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".view").forEach(v => v.hidden = v.id !== "view-" + b.dataset.view);
+});
+
+/* ---------- clinical tools ---------- */
+const F = DATA.formulary;
+const srcLink = k => F.sources[k] ? `<a href="${F.sources[k]}" target="_blank" rel="noopener">source</a>` : "";
+$("rDrug").innerHTML = Object.keys(F.regimens).map(k => `<option value="${k}">${k[0].toUpperCase() + k.slice(1)}</option>`).join("");
+function regimen() {
+  const k = $("rDrug").value, age = parseFloat($("rAge").value), e = F.regimens[k];
+  let dose, freq, pop;
+  if (!isNaN(age) && age < 18) {
+    const band = (e.child_bands || []).find(b => b.min_age_years <= age && age < b.max_age_years);
+    if (!band) { $("rOut").innerHTML = `<div class="ix moderate"><b>No paediatric band on file</b><span>Consult the BNFC for ${esc(k)} at age ${age}.</span></div>`; return; }
+    dose = band.dose; freq = band.frequency; pop = `Child, ${age} years`;
+  } else { dose = e.adult.dose; freq = e.adult.frequency; pop = "Adult"; }
+  $("rOut").innerHTML = `<div class="big">${esc(dose)}</div>
+    <dl class="kv"><dt>Frequency</dt><dd>${esc(freq)}</dd><dt>Duration</dt><dd>${esc(e.adult.duration || "as directed")}</dd><dt>Population</dt><dd>${pop}</dd><dt>Indication</dt><dd>${esc(e.indication)}</dd><dt>Note</dt><dd>${esc(e.note)}</dd></dl>
+    <div class="verify">Reference only. Confirm against the current BNF or BNFC. ${srcLink(e.source)} · reviewed ${F.reviewed}</div>`;
+}
+["rDrug", "rAge"].forEach(id => $(id).addEventListener("input", regimen)); regimen();
+
+$("laProd").innerHTML = F.local_anaesthetics.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join("");
+function la() {
+  const p = F.local_anaesthetics[+$("laProd").value], w = parseFloat($("laWt").value);
+  if (isNaN(w) || w < 3 || w > 250) { $("laOut").innerHTML = `<p class="note" style="margin:0">Enter a weight between 3 and 250 kg.</p>`; return; }
+  const byWeight = p.max_mg_per_kg * w, mg = Math.min(byWeight, p.absolute_max_mg), ml = mg / p.mg_per_ml, carts = ml / p.cartridge_ml;
+  const capped = byWeight > p.absolute_max_mg;
+  $("laOut").innerHTML = `<div class="big">${carts.toFixed(1)} cartridges</div>
+    <dl class="kv"><dt>Maximum</dt><dd class="mono">${mg.toFixed(1)} mg · ${ml.toFixed(2)} mL</dd><dt>Basis</dt><dd>${p.max_mg_per_kg} mg/kg${capped ? `, capped at the ${p.absolute_max_mg} mg ceiling` : ""}</dd></dl>
+    <div class="meter" aria-hidden="true"><i style="width:${Math.min(100, mg / p.absolute_max_mg * 100)}%"></i></div>
+    <div class="verify">Share of the absolute ceiling. Reference values; confirm against the product SmPC and reduce for medical risk.</div>`;
+}
+["laProd", "laWt"].forEach(id => $(id).addEventListener("input", la)); la();
+
+function adr() {
+  const a = parseFloat($("adAge").value), e = F.emergency.adrenaline_anaphylaxis;
+  const band = e.age_bands.find(b => b.min_age_years <= a && a < b.max_age_years);
+  $("adOut").innerHTML = band ? `<div class="big">${esc(band.dose)}</div><dl class="kv"><dt>Route</dt><dd>Intramuscular, anterolateral thigh</dd><dt>Repeat</dt><dd>${esc(e.repeat)}</dd></dl><div class="verify">Call 999 and use the ABCDE approach. ${srcLink(e.source)}</div>` : `<p class="note">Enter an age.</p>`;
+}
+$("adAge").addEventListener("input", adr); adr();
+
+const ixNames = [...new Set(F.interactions.flatMap(r => [r.a, r.b]))].sort();
+$("ixDrugs").innerHTML = ixNames.map(n => `<label><input type="checkbox" id="ix-${n}" value="${n}" ${["metronidazole", "warfarin"].includes(n) ? "checked" : ""}><span>${n}</span></label>`).join("");
+function ix() {
+  const sel = [...document.querySelectorAll("#ixDrugs input:checked")].map(i => i.value);
+  const hits = F.interactions.filter(r => sel.includes(r.a) && sel.includes(r.b)).sort((a, b) => (a.severity === "major" ? 0 : 1) - (b.severity === "major" ? 0 : 1));
+  $("ixOut").innerHTML = sel.length < 2 ? `<p class="note" style="margin:0">Select at least two medicines.</p>` :
+    (hits.length ? hits.map(h => `<div class="ix ${h.severity}"><b>${h.severity === "major" ? "Major" : "Moderate"}: ${esc(h.a)} with ${esc(h.b)}</b><span>${esc(h.effect)}</span></div>`).join("") : `<div class="ix" style="background:var(--guide-soft)"><b style="color:var(--guide)">No interaction in the curated dental set</b><span>This is not proof of safety. Check the BNF interactions appendix.</span></div>`);
+}
+$("ixDrugs").addEventListener("change", ix); ix();
+
+/* ---------- library ---------- */
+$("libRows").innerHTML = DATA.docs.map(d => `<tr><td><a href="${d.url}" target="_blank" rel="noopener">${esc(d.title)}</a></td><td>${esc(d.publisher || "")}</td><td><span class="ev ${d.evidence_level === 6 ? "ev-6" : "ev-low"}">${esc(d.evidence)}</span></td><td class="num">${d.year || ""}</td><td class="mono">${esc(d.licence)}</td><td class="num">${d.passages}</td></tr>`).join("");
+</script>

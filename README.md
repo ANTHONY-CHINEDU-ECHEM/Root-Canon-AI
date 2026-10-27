@@ -3,87 +3,46 @@
 **Evidence grounded clinical decision support for UK dental surgery, built on retrieval augmented generation over real, licensed clinical knowledge.**
 
 ## System architecture
+```mermaid
+flowchart LR
+    %% Knowledge sources
+    FDA[openFDA labels]
+    MLP[MedlinePlus]
+    PUBMED[PubMed Entrez]
+    EPMC[Europe PMC]
+    NICE[NICE guidance]
+    SDCEP[SDCEP prescribing]
+    DBOH[Delivering Better Oral Health]
 
-flowchart TB
+    %% Ingestion pipeline
+    FDA & MLP & PUBMED & EPMC & NICE & SDCEP & DBOH --> HARVEST[Harvest]
+    HARVEST --> CLEAN[Normalise] --> DEDUP[Deduplicate] --> CHUNK[Chunk and grade] --> EMBED[Embed]
 
-  %% ===================== 1. REAL KNOWLEDGE SOURCES =====================
-  subgraph SOURCES["<b>1 · Real knowledge sources</b>"]
-    direction TB
-    subgraph MEDS["Medicines and patient information"]
-      direction LR
-      FDA["<b>openFDA labels</b><br/>37 dental medicines"]
-      MLP["<b>MedlinePlus</b><br/>plain language topics"]
-    end
-    subgraph RESEARCH["Peer reviewed research"]
-      direction LR
-      PUBMED["<b>PubMed Entrez</b><br/>10 MeSH query families"]
-      EPMC["<b>Europe PMC</b><br/>open access, CC BY"]
-    end
-    subgraph UKG["UK national guidance"]
-      direction LR
-      NICE["<b>NICE Syndication API</b><br/>CG19 · CG64 · NG12 · NG30"]
-      SDCEP["<b>SDCEP</b><br/>Drug Prescribing for Dentistry"]
-      DBOH["<b>GOV.UK Content API</b><br/>Delivering Better Oral Health"]
-    end
-  end
+    %% Index stores
+    HARVEST --> RAW[Raw corpus]
+    CHUNK --> BM25[BM25 index]
+    EMBED --> QDRANT[Qdrant vectors]
+    EMBED --> MANIFEST[Build manifest]
 
-  %% ===================== 2. INGESTION PIPELINE =====================
-  subgraph INGEST["<b>2 · Ingestion pipeline</b>"]
-    direction LR
-    HARVEST["<b>Harvest</b><br/>rate limited, retries<br/>robots.txt honoured"]
-    CLEAN["<b>Normalise</b><br/>unit safe cleaning<br/>1:80,000 preserved"]
-    DEDUP["<b>Deduplicate</b><br/>64 bit SimHash<br/>licence priority"]
-    CHUNK["<b>Chunk and grade</b><br/>section aware, 320 tokens<br/>evidence grade 0 to 6"]
-    EMBED["<b>Embed</b><br/>BGE base, 768 dims<br/>title and section header"]
-    HARVEST ==> CLEAN ==> DEDUP ==> CHUNK ==> EMBED
-  end
+    %% Question answering
+    UI[Clinician interface] -->|question| GATEWAY[API gateway]
+    GATEWAY --> GUARD[Guardrails]
+    GATEWAY -.->|deterministic doses| TOOLS[Clinical tools]
+    GUARD --> VSEARCH[Vector search]
+    GUARD --> KSEARCH[Keyword search]
+    QDRANT --> VSEARCH
+    BM25 --> KSEARCH
+    VSEARCH --> FUSION[Rank fusion]
+    KSEARCH --> FUSION
+    FUSION --> RERANK[Reranker] --> GATE[Evidence gate]
+    GATE -->|cited context| ROUTER[LLM router] --> VALIDATE[Citation validator]
+    VALIDATE -->|answer and sources| UI
 
-  %% ===================== 3. INDEX STORES =====================
-  subgraph STORES["<b>3 · Index stores</b>"]
-    direction LR
-    QDRANT["<b>Qdrant</b><br/>HNSW, cosine<br/>payload filters"]
-    BM25["<b>BM25 index</b><br/>clinical tokenizer<br/>abbreviation expansion"]
-    RAW["<b>Raw corpus</b><br/>JSONL per source<br/>resume and rebuild"]
-    MANIFEST["<b>Build manifest</b><br/>counts, licences<br/>timings"]
-  end
-
-  %% ===================== 4. QUESTION ANSWERING =====================
-  subgraph ANSWER["<b>4 · Question answering</b>"]
-    direction LR
-    UI(["<b>Clinician interface</b><br/>React and TypeScript<br/>evidence tray"])
-    GATEWAY["<b>API gateway</b><br/>FastAPI, API key auth<br/>rate limit, Redis cache"]
-    GUARD{"<b>Guardrails</b><br/>PII redaction<br/>emergency triage<br/>scope check"}
-    RETRIEVE["<b>Hybrid retriever</b><br/>dense + BM25<br/>rank fusion<br/>cross encoder rerank<br/>clinical priors"]
-    GATE{"<b>Evidence gate</b><br/>injection filter<br/>abstain if weak"}
-    ROUTER["<b>LLM router</b><br/>Claude <i>(default)</i><br/>OpenAI <i>(switchable)</i><br/>Ollama <i>(on premises)</i>"]
-    VALIDATE["<b>Citation validator</b><br/>invalid ids removed<br/>citation coverage<br/>dose matching"]
-    TOOLS[["<b>Clinical tools</b><br/>SDCEP regimens<br/>LA maximum dose<br/>interactions"]]
-
-    UI ==>|question| GATEWAY
-    GATEWAY --> GUARD
-    GUARD --> RETRIEVE
-    RETRIEVE --> GATE
-    GATE ==>|cited context| ROUTER
-    ROUTER --> VALIDATE
-    VALIDATE ==>|"emergency banner · sources · tokens · final"| UI
-    GATEWAY -.->|deterministic doses| TOOLS
-  end
-
-  %% ===================== 5. OPERATIONS =====================
-  subgraph OPS["<b>5 · Operations</b>"]
-    direction LR
-    AUDIT["<b>Audit log</b><br/>hashed question<br/>sources, coverage"]
-    METRICS["<b>Prometheus</b><br/>latency, outcomes<br/>unsupported figures"]
-    EVAL["<b>Evaluation gate</b><br/>hit@5 · MRR · triage<br/>abstention accuracy"]
-    CI["<b>CI pipeline</b><br/>ruff · pytest · eval<br/>README style gate"]
-    STACK["<b>Container stack</b><br/>API · Qdrant · Redis<br/>frontend · Ollama"]
-  end
-
-  %% ===================== LAYER FLOW =====================
-  SOURCES --> INGEST
-  INGEST --> STORES
-  STORES ==>|vector and lexical lookup| ANSWER
-  ANSWER ==>|every answer recorded| OPS
+    %% Operations
+    VALIDATE -->|every answer recorded| AUDIT[Audit log]
+    VALIDATE --> METRICS[Prometheus metrics]
+    AUDIT --> EVAL[Evaluation gate] --> CI[CI pipeline] --> STACK[Container stack]
+```
 
 The architecture is organised into five layers, numbered in the diagram in the order data flows through them.
 

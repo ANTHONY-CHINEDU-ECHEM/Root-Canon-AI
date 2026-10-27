@@ -4,8 +4,6 @@
 
 ## System architecture
 
-```mermaid
-%%{init: {"theme": "neutral", "flowchart": {"curve": "basis", "nodeSpacing": 30, "rankSpacing": 60, "padding": 16, "htmlLabels": true}}}%%
 flowchart TB
 
   %% ===================== 1. REAL KNOWLEDGE SOURCES =====================
@@ -43,10 +41,10 @@ flowchart TB
   %% ===================== 3. INDEX STORES =====================
   subgraph STORES["<b>3 · Index stores</b>"]
     direction LR
-    QDRANT[("<b>Qdrant</b><br/>HNSW, cosine<br/>payload filters")]
-    BM25[("<b>BM25 index</b><br/>clinical tokenizer<br/>abbreviation expansion")]
-    RAW[("<b>Raw corpus</b><br/>JSONL per source<br/>resume and rebuild")]
-    MANIFEST[("<b>Build manifest</b><br/>counts, licences<br/>timings")]
+    QDRANT["<b>Qdrant</b><br/>HNSW, cosine<br/>payload filters"]
+    BM25["<b>BM25 index</b><br/>clinical tokenizer<br/>abbreviation expansion"]
+    RAW["<b>Raw corpus</b><br/>JSONL per source<br/>resume and rebuild"]
+    MANIFEST["<b>Build manifest</b><br/>counts, licences<br/>timings"]
   end
 
   %% ===================== 4. QUESTION ANSWERING =====================
@@ -54,7 +52,7 @@ flowchart TB
     direction LR
     UI(["<b>Clinician interface</b><br/>React and TypeScript<br/>evidence tray"])
     GATEWAY["<b>API gateway</b><br/>FastAPI, API key auth<br/>rate limit, Redis cache"]
-    GUARD{{"<b>Guardrails</b><br/>PII redaction<br/>emergency triage<br/>scope check"}}
+    GUARD{"<b>Guardrails</b><br/>PII redaction<br/>emergency triage<br/>scope check"}
     RETRIEVE["<b>Hybrid retriever</b><br/>dense + BM25<br/>rank fusion<br/>cross encoder rerank<br/>clinical priors"]
     GATE{"<b>Evidence gate</b><br/>injection filter<br/>abstain if weak"}
     ROUTER["<b>LLM router</b><br/>Claude <i>(default)</i><br/>OpenAI <i>(switchable)</i><br/>Ollama <i>(on premises)</i>"]
@@ -62,11 +60,11 @@ flowchart TB
     TOOLS[["<b>Clinical tools</b><br/>SDCEP regimens<br/>LA maximum dose<br/>interactions"]]
 
     UI ==>|question| GATEWAY
-    GATEWAY ==> GUARD
-    GUARD ==> RETRIEVE
-    RETRIEVE ==> GATE
+    GATEWAY --> GUARD
+    GUARD --> RETRIEVE
+    RETRIEVE --> GATE
     GATE ==>|cited context| ROUTER
-    ROUTER ==> VALIDATE
+    ROUTER --> VALIDATE
     VALIDATE ==>|"emergency banner · sources · tokens · final"| UI
     GATEWAY -.->|deterministic doses| TOOLS
   end
@@ -82,12 +80,10 @@ flowchart TB
   end
 
   %% ===================== LAYER FLOW =====================
-  SOURCES ==> INGEST
-  INGEST ==> STORES
+  SOURCES --> INGEST
+  INGEST --> STORES
   STORES ==>|vector and lexical lookup| ANSWER
   ANSWER ==>|every answer recorded| OPS
-```
-
 
 The architecture is organised into five layers, numbered in the diagram in the order data flows through them.
 

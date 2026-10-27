@@ -5,13 +5,13 @@
 ## System architecture
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Inter, Segoe UI, Helvetica Neue, Arial", "fontSize": "15px", "primaryColor": "#ffffff", "primaryTextColor": "#15242a", "primaryBorderColor": "#15242a", "lineColor": "#3d4f55", "clusterBkg": "#f4f7f6", "clusterBorder": "#b9c6c1", "edgeLabelBackground": "#ffffff", "titleColor": "#15242a"}, "flowchart": {"curve": "basis", "nodeSpacing": 26, "rankSpacing": 54, "padding": 14, "htmlLabels": true}}}%%
+%%{init: {"theme": "neutral", "flowchart": {"curve": "basis", "nodeSpacing": 30, "rankSpacing": 60, "padding": 16, "htmlLabels": true}}}%%
 flowchart TB
 
-  %% ============ 1. REAL KNOWLEDGE SOURCES ============
+  %% ===================== 1. REAL KNOWLEDGE SOURCES =====================
   subgraph SOURCES["<b>1 · Real knowledge sources</b>"]
     direction TB
-    subgraph MEDS["Medicines and patient info"]
+    subgraph MEDS["Medicines and patient information"]
       direction LR
       FDA["<b>openFDA labels</b><br/>37 dental medicines"]
       MLP["<b>MedlinePlus</b><br/>plain language topics"]
@@ -29,7 +29,7 @@ flowchart TB
     end
   end
 
-  %% ============ 2. INGESTION PIPELINE ============
+  %% ===================== 2. INGESTION PIPELINE =====================
   subgraph INGEST["<b>2 · Ingestion pipeline</b>"]
     direction LR
     HARVEST["<b>Harvest</b><br/>rate limited, retries<br/>robots.txt honoured"]
@@ -40,16 +40,16 @@ flowchart TB
     HARVEST ==> CLEAN ==> DEDUP ==> CHUNK ==> EMBED
   end
 
-  %% ============ 3. INDEX STORES ============
+  %% ===================== 3. INDEX STORES =====================
   subgraph STORES["<b>3 · Index stores</b>"]
-    direction TB
+    direction LR
     QDRANT[("<b>Qdrant</b><br/>HNSW, cosine<br/>payload filters")]
     BM25[("<b>BM25 index</b><br/>clinical tokenizer<br/>abbreviation expansion")]
     RAW[("<b>Raw corpus</b><br/>JSONL per source<br/>resume and rebuild")]
     MANIFEST[("<b>Build manifest</b><br/>counts, licences<br/>timings")]
   end
 
-  %% ============ 4. QUESTION ANSWERING ============
+  %% ===================== 4. QUESTION ANSWERING =====================
   subgraph ANSWER["<b>4 · Question answering</b>"]
     direction LR
     UI(["<b>Clinician interface</b><br/>React and TypeScript<br/>evidence tray"])
@@ -57,59 +57,37 @@ flowchart TB
     GUARD{{"<b>Guardrails</b><br/>PII redaction<br/>emergency triage<br/>scope check"}}
     RETRIEVE["<b>Hybrid retriever</b><br/>dense + BM25<br/>rank fusion<br/>cross encoder rerank<br/>clinical priors"]
     GATE{"<b>Evidence gate</b><br/>injection filter<br/>abstain if weak"}
-    ROUTER["<b>LLM router</b><br/>Claude &nbsp;<i>default</i><br/>OpenAI &nbsp;<i>switchable</i><br/>Ollama &nbsp;<i>on premises</i>"]
+    ROUTER["<b>LLM router</b><br/>Claude <i>(default)</i><br/>OpenAI <i>(switchable)</i><br/>Ollama <i>(on premises)</i>"]
     VALIDATE["<b>Citation validator</b><br/>invalid ids removed<br/>citation coverage<br/>dose matching"]
     TOOLS[["<b>Clinical tools</b><br/>SDCEP regimens<br/>LA maximum dose<br/>interactions"]]
 
-    UI ==>|question| GATEWAY ==> GUARD ==> RETRIEVE ==> GATE ==>|cited context| ROUTER ==> VALIDATE
+    UI ==>|question| GATEWAY
+    GATEWAY ==> GUARD
+    GUARD ==> RETRIEVE
+    RETRIEVE ==> GATE
+    GATE ==>|cited context| ROUTER
+    ROUTER ==> VALIDATE
     VALIDATE ==>|"emergency banner · sources · tokens · final"| UI
-    GATEWAY ==>|deterministic doses| TOOLS
+    GATEWAY -.->|deterministic doses| TOOLS
   end
 
-  %% ============ 5. OPERATIONS ============
+  %% ===================== 5. OPERATIONS =====================
   subgraph OPS["<b>5 · Operations</b>"]
-    direction TB
-    AUDIT["<b>Audit log</b><br/>hashed question,<br/>sources, coverage"]
-    METRICS["<b>Prometheus</b><br/>latency, outcomes,<br/>unsupported figures"]
+    direction LR
+    AUDIT["<b>Audit log</b><br/>hashed question<br/>sources, coverage"]
+    METRICS["<b>Prometheus</b><br/>latency, outcomes<br/>unsupported figures"]
     EVAL["<b>Evaluation gate</b><br/>hit@5 · MRR · triage<br/>abstention accuracy"]
     CI["<b>CI pipeline</b><br/>ruff · pytest · eval<br/>README style gate"]
     STACK["<b>Container stack</b><br/>API · Qdrant · Redis<br/>frontend · Ollama"]
   end
 
-  SOURCES ==> INGEST ==> STORES
+  %% ===================== LAYER FLOW =====================
+  SOURCES ==> INGEST
+  INGEST ==> STORES
   STORES ==>|vector and lexical lookup| ANSWER
   ANSWER ==>|every answer recorded| OPS
-
-  %% ============ STYLES ============
-  classDef uk fill:#e3f1ea,stroke:#2c6a57,color:#1d4d3f
-  classDef research fill:#ffffff,stroke:#5a6a6f,color:#15242a
-  classDef stage fill:#ffffff,stroke:#15242a,color:#15242a
-  classDef store fill:#f8e9ec,stroke:#a83a4f,color:#5c1f2b
-  classDef safety fill:#fbf0d9,stroke:#8a5a00,color:#5c3c00
-  classDef model fill:#f8e9ec,stroke:#a83a4f,color:#5c1f2b
-  classDef verify fill:#e3f1ea,stroke:#2c6a57,color:#1d4d3f
-  classDef client fill:#15242a,stroke:#15242a,color:#ffffff
-  classDef ops fill:#ffffff,stroke:#8a989c,color:#15242a
-
-  class NICE,SDCEP,DBOH uk
-  class PUBMED,EPMC,FDA,MLP research
-  class HARVEST,CLEAN,DEDUP,CHUNK,EMBED,GATEWAY,RETRIEVE stage
-  class QDRANT,BM25,RAW,MANIFEST store
-  class GUARD,GATE safety
-  class ROUTER model
-  class VALIDATE,TOOLS verify
-  class UI client
-  class AUDIT,METRICS,EVAL,CI,STACK ops
-
-  style SOURCES fill:#f4f7f6,stroke:#b9c6c1
-  style INGEST fill:#f4f7f6,stroke:#b9c6c1
-  style STORES fill:#fdf6f7,stroke:#d9a9b3
-  style ANSWER fill:#ffffff,stroke:#15242a
-  style OPS fill:#f4f7f6,stroke:#b9c6c1
-  style UKG fill:#f1f8f4,stroke:#9cc7b6
-  style RESEARCH fill:#ffffff,stroke:#c9d3cf
-  style MEDS fill:#ffffff,stroke:#c9d3cf
 ```
+
 
 The architecture is organised into five layers, numbered in the diagram in the order data flows through them.
 

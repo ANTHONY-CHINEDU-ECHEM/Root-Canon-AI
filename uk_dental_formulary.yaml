@@ -1,0 +1,92 @@
+# UK dental regimen reference used by the deterministic dosing tool.
+#
+# Values are transcribed from SDCEP Drug Prescribing For Dentistry (3rd edition
+# with the 2021 update, aligned to the BNF) and Resuscitation Council UK. They are
+# reference values only: the tool always shows the source link, and the
+# clinician must confirm against the current BNF or BNFC before prescribing.
+# Review date for this file is stored in `reviewed` and surfaced by the API.
+
+reviewed: "2026-10"
+sources:
+  sdcep_amoxicillin: https://sdcepdentalprescribing.nhs.scot/guidance/bacterial-infections/dental-abscess/first-line-antibiotics/amoxicillin
+  sdcep_update_2021: https://sdcep.org.uk/news/update-to-drug-prescribing-guidance-now-available/
+  sdcep_metronidazole: https://sdcepdentalprescribing.nhs.scot/guidance/bacterial-infections/acute-periodontal-conditions/metronidazole/
+  sdcep_ibuprofen: https://sdcepdentalprescribing.nhs.scot/guidance/odontogenic-pain/analgesics/ibuprofen/
+  sdcep_paracetamol: https://sdcepdentalprescribing.nhs.scot/guidance/odontogenic-pain/analgesics/paracetamol/
+  sdcep_emergency_drugs: https://www.psm.sdcep.org.uk/topics/medical-emergencies-and-life-support/medical-emergency-drugs/
+  rcuk_anaphylaxis: https://www.resus.org.uk/library/additional-guidance/guidance-anaphylaxis/emergency-treatment
+
+regimens:
+  phenoxymethylpenicillin:
+    indication: Dental abscess with spreading infection or systemic involvement (first choice since the 2021 SDCEP update)
+    note: Antibiotics are adjunctive. Local measures (drainage, extraction, pulp extirpation) come first.
+    source: sdcep_update_2021
+    adult: { dose: "500 mg", frequency: "four times daily", duration: "5 days", route: oral }
+  amoxicillin:
+    indication: Dental abscess with spreading infection or systemic involvement
+    note: Better absorbed than phenoxymethylpenicillin. Review the patient after the course.
+    source: sdcep_amoxicillin
+    adult: { dose: "500 mg", frequency: "three times daily", duration: "5 days", route: oral }
+    child_bands:
+      - { min_age_years: 0.5, max_age_years: 1, dose: "125 mg", frequency: "three times daily" }
+      - { min_age_years: 1, max_age_years: 5, dose: "250 mg", frequency: "three times daily" }
+      - { min_age_years: 5, max_age_years: 12, dose: "500 mg", frequency: "three times daily" }
+      - { min_age_years: 12, max_age_years: 18, dose: "500 mg", frequency: "three times daily" }
+  metronidazole:
+    indication: Dental abscess (adjunct or penicillin allergy) and necrotising periodontal conditions
+    note: Avoid alcohol during and for 48 hours after the course. Enhances the effect of warfarin.
+    source: sdcep_metronidazole
+    adult: { dose: "400 mg", frequency: "three times daily", duration: "3 days for necrotising periodontal disease; 5 days for dental abscess", route: oral }
+  ibuprofen:
+    indication: Mild to moderate odontogenic pain, especially with inflammation
+    note: Take with or after food. Avoid or use with caution in asthma, peptic ulcer, renal impairment, anticoagulation, and late pregnancy.
+    source: sdcep_ibuprofen
+    adult: { dose: "400 mg", frequency: "four times daily, preferably after food", duration: "up to 5 days", route: oral }
+  paracetamol:
+    indication: Mild to moderate odontogenic pain
+    note: Maximum 4 g in 24 hours for adults. Reduce the dose in adults under 50 kg, hepatic impairment or alcohol dependence.
+    source: sdcep_paracetamol
+    adult: { dose: "1 g", frequency: "four times daily", duration: "up to 5 days", route: oral }
+
+emergency:
+  adrenaline_anaphylaxis:
+    title: Adrenaline 1:1000 (1 mg/mL) intramuscular for anaphylaxis
+    source: rcuk_anaphylaxis
+    age_bands:
+      - { min_age_years: 12, max_age_years: 200, dose: "500 micrograms (0.5 mL)" }
+      - { min_age_years: 6, max_age_years: 12, dose: "300 micrograms (0.3 mL)" }
+      - { min_age_years: 0, max_age_years: 6, dose: "150 micrograms (0.15 mL)" }
+    repeat: Repeat after 5 minutes if there is no improvement.
+  glyceryl_trinitrate:
+    title: Glyceryl trinitrate spray for angina
+    source: sdcep_emergency_drugs
+    adult: "400 micrograms per metered dose, sublingually"
+  salbutamol:
+    title: Salbutamol inhaler for acute asthma
+    source: sdcep_emergency_drugs
+    adult: "100 micrograms per actuation via spacer"
+
+local_anaesthetics:
+  # Maximum doses in mg per kg are reference values commonly taught in UK
+  # dental schools and are configurable. Confirm against the product SmPC.
+  - { name: "Lidocaine 2% with adrenaline 1:80,000", mg_per_ml: 20, max_mg_per_kg: 4.4, absolute_max_mg: 300, cartridge_ml: 2.2 }
+  - { name: "Articaine 4% with adrenaline 1:100,000", mg_per_ml: 40, max_mg_per_kg: 7.0, absolute_max_mg: 500, cartridge_ml: 2.2 }
+  - { name: "Mepivacaine 3% plain", mg_per_ml: 30, max_mg_per_kg: 4.4, absolute_max_mg: 300, cartridge_ml: 2.2 }
+  - { name: "Prilocaine 3% with felypressin", mg_per_ml: 30, max_mg_per_kg: 6.0, absolute_max_mg: 400, cartridge_ml: 2.2 }
+
+interactions:
+  # Clinically important interactions for drugs a dentist commonly prescribes.
+  - { a: metronidazole, b: warfarin, severity: major, effect: "Enhanced anticoagulant effect; risk of bleeding. Avoid or monitor INR." }
+  - { a: metronidazole, b: alcohol, severity: major, effect: "Disulfiram like reaction. Avoid alcohol during and for 48 hours after." }
+  - { a: miconazole, b: warfarin, severity: major, effect: "Miconazole oral gel markedly enhances warfarin; avoid combination." }
+  - { a: fluconazole, b: warfarin, severity: major, effect: "Enhanced anticoagulant effect; monitor INR." }
+  - { a: ibuprofen, b: warfarin, severity: major, effect: "Increased bleeding risk; prefer paracetamol." }
+  - { a: ibuprofen, b: apixaban, severity: major, effect: "Increased bleeding risk with DOACs; prefer paracetamol." }
+  - { a: ibuprofen, b: rivaroxaban, severity: major, effect: "Increased bleeding risk with DOACs; prefer paracetamol." }
+  - { a: ibuprofen, b: methotrexate, severity: major, effect: "Reduced methotrexate excretion; risk of toxicity." }
+  - { a: ibuprofen, b: lithium, severity: major, effect: "Reduced lithium excretion; risk of lithium toxicity." }
+  - { a: ibuprofen, b: aspirin, severity: moderate, effect: "Increased gastrointestinal bleeding risk; may reduce cardioprotective effect of low dose aspirin." }
+  - { a: clarithromycin, b: simvastatin, severity: major, effect: "Raised statin levels; risk of myopathy. Avoid; suspend statin or choose another antibiotic." }
+  - { a: clarithromycin, b: warfarin, severity: major, effect: "Enhanced anticoagulant effect; monitor INR." }
+  - { a: amoxicillin, b: methotrexate, severity: moderate, effect: "Reduced methotrexate excretion." }
+  - { a: amoxicillin, b: warfarin, severity: moderate, effect: "Occasional INR changes; advise monitoring." }

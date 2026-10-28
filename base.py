@@ -11,6 +11,7 @@ import abc
 import asyncio
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 from urllib import robotparser
 from urllib.parse import urlparse
 
@@ -48,7 +49,7 @@ class SourceConnector(abc.ABC):
     requests_per_second: float = 3.0
     respect_robots: bool = False
 
-    def __init__(self, client: httpx.AsyncClient | None = None, **options: object) -> None:
+    def __init__(self, client: httpx.AsyncClient | None = None, **options: Any) -> None:
         self._client = client or httpx.AsyncClient(
             headers={"User-Agent": USER_AGENT}, timeout=httpx.Timeout(45.0), follow_redirects=True
         )

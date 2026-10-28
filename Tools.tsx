@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { tools, type Interaction, type LALimit, type Regimen } from "../lib/api";
+import { tools, type Interaction, type LALimit, type Regimen, type ScreenResult } from "../lib/api";
 
 const DRUGS = ["phenoxymethylpenicillin", "amoxicillin", "metronidazole", "ibuprofen", "paracetamol"];
 const LA = ["Lidocaine 2% with adrenaline 1:80,000", "Articaine 4% with adrenaline 1:100,000", "Mepivacaine 3% plain", "Prilocaine 3% with felypressin"];
@@ -15,6 +15,20 @@ export function Tools() {
   const [limit, setLimit] = useState<LALimit | null>(null);
   const [selected, setSelected] = useState<string[]>(["metronidazole", "warfarin"]);
   const [hits, setHits] = useState<Interaction[]>([]);
+  const [planned, setPlanned] = useState("ibuprofen");
+  const [current, setCurrent] = useState("Xarelto");
+  const [screenContext, setScreenContext] = useState("asthma");
+  const [screen, setScreen] = useState<ScreenResult | null>(null);
+
+  useEffect(() => {
+    const split = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
+    const plan = split(planned);
+    if (!plan.length) { setScreen(null); return; }
+    const timer = window.setTimeout(() => {
+      tools.screen(plan, split(current), screenContext).then(setScreen).catch(() => setScreen(null));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [planned, current, screenContext]);
 
   useEffect(() => {
     const years = age === "" ? undefined : Number(age);
@@ -74,6 +88,33 @@ export function Tools() {
           <div className="result">
             <div className="big">{limit.max_cartridges} cartridges</div>
             <dl className="kv"><dt>Maximum</dt><dd className="mono">{limit.max_mg} mg · {limit.max_ml} mL</dd><dt>Basis</dt><dd>{limit.basis}</dd></dl>
+          </div>
+        )}
+      </div>
+
+      <div className="panel tool" style={{ gridColumn: "1 / -1" }}>
+        <h2>Medication safety screen</h2>
+        <p className="sub">What you plan to prescribe against the patient's medicines, conditions and allergies. Brand names are understood.</p>
+        <div className="row three">
+          <div className="field"><label className="label" htmlFor="planned">Planned, comma separated</label>
+            <input id="planned" value={planned} onChange={(e) => setPlanned(e.target.value)} /></div>
+          <div className="field"><label className="label" htmlFor="current">Patient takes</label>
+            <input id="current" value={current} onChange={(e) => setCurrent(e.target.value)} /></div>
+          <div className="field"><label className="label" htmlFor="sctx">Conditions and allergies</label>
+            <input id="sctx" value={screenContext} onChange={(e) => setScreenContext(e.target.value)} /></div>
+        </div>
+        {screen && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <p className="note" style={{ margin: 0 }}>Read as: planned <b>{screen.planned.join(", ") || "none"}</b>; patient takes <b>{screen.current.join(", ") || "nothing listed"}</b>.</p>
+            {!screen.flags.length && (
+              <div className="ix" style={{ background: "var(--guide-soft)" }}><b style={{ color: "var(--guide)" }}>No rule fired</b><span>{screen.note}</span></div>
+            )}
+            {screen.flags.map((f) => (
+              <div key={`${f.rule_id}-${f.drugs.join("-")}`} className={`ix ${f.severity === "contraindicated" ? "major" : f.severity === "caution" ? "moderate" : f.severity}`}>
+                <b>{f.severity[0].toUpperCase() + f.severity.slice(1)}: {f.title}</b>
+                <span>{f.message} {f.source_url && <a href={f.source_url} target="_blank" rel="noopener noreferrer">Guidance</a>}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

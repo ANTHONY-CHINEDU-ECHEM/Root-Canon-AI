@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from datetime import date
+from typing import Any
 
 from lxml import etree
 
@@ -128,7 +129,7 @@ def parse_pubmed_xml(xml_bytes: bytes) -> list[SourceDocument]:
 class PubMedConnector(SourceConnector):
     name = "pubmed"
 
-    def __init__(self, term: str, **options: object) -> None:
+    def __init__(self, term: str, **options: Any) -> None:
         self.api_key = os.getenv("NCBI_API_KEY") or None
         self.email = os.getenv("NCBI_EMAIL") or None
         self.requests_per_second = 9.0 if self.api_key else 2.8

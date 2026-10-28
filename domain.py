@@ -80,6 +80,7 @@ class Chunk(BaseModel):
     url: str
     source: str
     source_type: SourceType
+    publisher: str | None = None
     evidence_level: EvidenceLevel = EvidenceLevel.UNGRADED
     published_year: int | None = None
     jurisdiction: str | None = None
@@ -99,3 +100,4 @@ class RetrievedChunk(BaseModel):
     fused_score: float = 0.0
     rerank_score: float | None = None
     final_score: float = 0.0
+    superseded_by: dict | None = None

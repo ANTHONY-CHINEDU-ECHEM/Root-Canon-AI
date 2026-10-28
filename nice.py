@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from datetime import date
+from typing import Any
 
 from backend.app.domain import Licence, SourceDocument, SourceType
 from ingestion.sources.base import SourceConnector
@@ -23,7 +24,7 @@ class NICESyndicationConnector(SourceConnector):
     name = "nice"
     requests_per_second = 2.0
 
-    def __init__(self, guidance_ids: list[str], **options: object) -> None:
+    def __init__(self, guidance_ids: list[str], **options: Any) -> None:
         super().__init__(**options)
         self.guidance_ids = guidance_ids
         self.api_key = os.getenv("NICE_SYNDICATION_API_KEY")
@@ -36,7 +37,7 @@ class NICESyndicationConnector(SourceConnector):
         for count, guidance_id in enumerate(self.guidance_ids, start=1):
             try:
                 response = await self.get(f"{API}/{guidance_id}", headers=headers)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 self.log.warning("nice_fetch_failed", guidance=guidance_id, error=str(exc))
                 continue
             payload = response.json()

@@ -88,6 +88,11 @@ Root Canon AI is designed around that accountability. It answers only from a cur
 * **Evidence visibility.** Each source shows its evidence grade on a six step ladder from ungraded to UK national guidance, its section, year and jurisdiction.
 * **Patient data protection.** Names with titles, valid NHS numbers (checked with the modulus 11 algorithm), postcodes, dates of birth, phone numbers and email addresses are redacted before any text reaches retrieval, a model vendor, a cache or a log.
 * **Model choice.** Claude through the Anthropic API is the default; OpenAI and a fully local Ollama model can be selected per deployment or per request.
+* **Clinical query understanding.** Brand names (Eliquis, Xarelto, Flagyl, Nurofen), US spellings and shorthand are mapped to UK generic terms, and the patient's age, weight, medicines and the kind of answer wanted are extracted before retrieval.
+* **Verified tool cards.** When a question asks for a dose, a local anaesthetic ceiling or an emergency drug, the deterministic tools run automatically and their result is streamed as its own card before the model starts writing. A child with no stated age never receives an adult dose.
+* **Medication safety screen.** What the dentist plans to prescribe is checked against the patient's medicines, allergies and conditions from the de identified patient context: interactions, anticoagulation, antiresorptive therapy, penicillin allergy and NSAID cautions, each linked to UK guidance.
+* **Guideline currency.** A supersession graph recognises withdrawn editions of UK guidance, demotes them in ranking, labels them in the interface and tells the model not to present them as current.
+* **Clinical governance.** Clinicians rate answers with reasons, comments are redacted before storage, and an admin summary reports abstention, grounding, faithfulness, emergencies, tool use, superseded sources and negative feedback.
 
 ## The knowledge base
 
@@ -129,11 +134,12 @@ Evidence is graded on a six step scale used for both ranking and display:
 1. **Redaction.** Identifiers are replaced with typed placeholders. Nothing identifiable leaves the service.
 2. **Emergency triage.** Pattern rules for eight emergency categories run first. A match streams an action banner immediately and adds emergency guidance hints to the retrieval query.
 3. **Scope check.** Questions with no dental or dentally relevant medical content are declined politely without spending a model call. Short follow up questions inherit scope from the conversation.
-4. **Hybrid retrieval.** The query is embedded with BGE base and searched in Qdrant (top 40) while BM25 searches the same corpus (top 40). Results are fused with reciprocal rank fusion, reranked by a cross encoder, then rescored with an evidence prior, a recency prior with an eight year half life and a UK jurisdiction bonus. No document may fill more than two of the eight context slots.
-5. **Injection filter and evidence gate.** Retrieved text that tries to instruct the model is dropped. If the best remaining evidence scores below the threshold the system abstains instead of guessing.
-6. **Generation.** Sources are passed as numbered XML blocks carrying title, evidence grade, year and jurisdiction. The system prompt, cached at the provider, requires a citation on every factual sentence, forbids doses not present verbatim in a source and requires a closing clinical judgement line.
-7. **Citation validation.** Citations to ids that were never supplied are removed, sentence level citation coverage is measured, and every number with a clinical unit in the answer must appear in a cited source. Unmatched figures are flagged to the clinician in the answer itself.
-8. **Audit.** A record with a hash of the question, the sources used, coverage, provider and latency is appended to the audit log.
+4. **Query understanding and tools.** Brand names and spellings are normalised, entities are extracted and the deterministic tools the question calls for are run. Their cards are streamed immediately and are never placed in the model's prompt, so the figure check below stays honest.
+5. **Hybrid retrieval.** The query is embedded with BGE base and searched in Qdrant (top 40) while BM25 searches the same corpus (top 40). Results are fused with reciprocal rank fusion, reranked by a cross encoder, then rescored with an evidence prior, a recency prior with an eight year half life and a UK jurisdiction bonus. Passages from superseded guidance are halved in score and labelled. No document may fill more than two of the eight context slots.
+6. **Injection filter, evidence gate and answerability.** Retrieved text that tries to instruct the model is dropped. If the best remaining evidence scores below the threshold, or if the question's most specific terms (weighted by inverse document frequency) are missing from the top passages, the system abstains instead of guessing. Emergencies are never held back by this gate.
+7. **Generation.** Sources are passed as numbered XML blocks carrying title, evidence grade, year and jurisdiction. The system prompt, cached at the provider, requires a citation on every factual sentence, forbids doses not present verbatim in a source and requires a closing clinical judgement line. A provider router tries the selected model, then the configured fallbacks, then the extractive generator, with a circuit breaker per vendor so an outage costs one failed call rather than every request.
+8. **Citation and faithfulness validation.** Citations to ids that were never supplied are removed, sentence level citation coverage is measured, and every number with a clinical unit in the answer must appear in a cited source. Unmatched figures are flagged to the clinician in the answer itself. Each cited sentence is then compared with the passages it cites, weighting drugs, numbers and rare words, and the share of supported claims is reported as claim support. An answer counts as grounded only when coverage, figures and claim support all pass.
+9. **Audit.** A record with a keyed hash of the question, the sources used, coverage, provider and latency is appended to the audit log.
 
 ## Clinical safety design
 
@@ -146,6 +152,11 @@ Evidence is graded on a six step scale used for both ranking and display:
     <tr><td>Delay in an emergency</td><td>Triage before retrieval; banner sent as the first streamed event</td><td><code>backend/app/guardrails/emergency.py</code></td></tr>
     <tr><td>Patient data leaving the practice</td><td>Redaction before retrieval, model calls, cache and logs; Ollama option for fully local inference</td><td><code>backend/app/guardrails/pii.py</code></td></tr>
     <tr><td>Prompt injection through documents</td><td>Sources marked as data in the prompt and injected chunks dropped</td><td><code>backend/app/guardrails/scope.py</code></td></tr>
+    <tr><td>Withdrawn guidance presented as current</td><td>Supersession graph demotes and labels old editions; prompt rule forbids presenting them as current; answer carries a currency check</td><td><code>backend/app/knowledge/supersession.yaml</code></td></tr>
+    <tr><td>Prescribing into an interaction or allergy</td><td>Medication safety screen runs on every question that names a medicine, using the patient context</td><td><code>backend/app/clinical/safety_screen.py</code></td></tr>
+    <tr><td>Adult dose given for a child</td><td>Router refuses to show a regimen for a child without an age and outside the formulary age bands</td><td><code>backend/app/clinical/router.py</code></td></tr>
+    <tr><td>Correct citation on an embellished claim</td><td>Claim level faithfulness check against the cited passages</td><td><code>backend/app/generation/faithfulness.py</code></td></tr>
+    <tr><td>Model vendor outage during a consultation</td><td>Ordered fallback chain with circuit breakers ending in the extractive generator</td><td><code>backend/app/llm/router.py</code></td></tr>
     <tr><td>Foreign practice presented as UK standard</td><td>Jurisdiction tagging, UK ranking bonus and prompt rule to prefer UK guidance</td><td><code>backend/app/retrieval/hybrid.py</code></td></tr>
   </tbody>
 </table>
@@ -154,24 +165,28 @@ Root Canon AI is decision support for registered dental professionals. It does n
 
 ## Evaluation
 
-The evaluation suite in `evaluation/golden_set.jsonl` holds twenty real UK clinical questions across prescribing, analgesia, cardiology, prevention, emergencies, medically compromised patients and oral medicine, plus deliberately unanswerable questions that test abstention. Each question names the source that should be retrieved and the facts the answer should contain.
+The evaluation suite in `evaluation/golden_set.jsonl` holds thirty two real UK clinical questions across prescribing, analgesia, cardiology, prevention, emergencies, medically compromised patients, oral medicine, medication safety and brand name understanding, plus deliberately unanswerable and out of scope questions. Each question names the source that should be retrieved, the facts the answer should contain and the deterministic tools that should fire.
 
-Offline baseline, measured on the seed set with the hashing embedder and the extractive generator, which is the configuration continuous integration runs without network access:
+Offline baseline, measured on the seed set with the hashing embedder and the extractive generator, which is the configuration continuous integration runs without network access. The gate thresholds live in `evaluation/thresholds.yaml` and `make eval_gate` fails the build when any is missed.
 
 <table>
-  <thead><tr><th>Metric</th><th>Result</th><th>CI gate</th></tr></thead>
+  <thead><tr><th>Metric</th><th>Version 1</th><th>Version 2</th><th>CI gate</th></tr></thead>
   <tbody>
-    <tr><td>Retrieval hit at 5</td><td>1.000</td><td>at least 0.90</td></tr>
-    <tr><td>Retrieval mean reciprocal rank</td><td>0.935</td><td>reported</td></tr>
-    <tr><td>Expected fact recall</td><td>0.824</td><td>reported</td></tr>
-    <tr><td>Citation coverage</td><td>1.000</td><td>at least 0.90</td></tr>
-    <tr><td>Answers with an unsupported figure</td><td>0.000</td><td>must be 0</td></tr>
-    <tr><td>Emergency triage accuracy</td><td>1.000</td><td>must be 1.0</td></tr>
-    <tr><td>Abstention accuracy</td><td>0.900</td><td>reported</td></tr>
+    <tr><td>Questions</td><td>20</td><td>32</td><td></td></tr>
+    <tr><td>Retrieval hit at 5</td><td>1.000</td><td>1.000</td><td>at least 0.90</td></tr>
+    <tr><td>Retrieval mean reciprocal rank</td><td>0.935</td><td>0.957</td><td>reported</td></tr>
+    <tr><td>Expected fact recall</td><td>0.824</td><td>0.942</td><td>at least 0.80</td></tr>
+    <tr><td>Citation coverage</td><td>1.000</td><td>1.000</td><td>at least 0.90</td></tr>
+    <tr><td>Claim support (faithfulness)</td><td>not measured</td><td>1.000</td><td>at least 0.90</td></tr>
+    <tr><td>Answers with an unsupported figure</td><td>0.000</td><td>0.000</td><td>must be 0</td></tr>
+    <tr><td>Emergency triage accuracy</td><td>1.000</td><td>1.000</td><td>must be 1.0</td></tr>
+    <tr><td>Abstention accuracy</td><td>0.900</td><td>1.000</td><td>at least 0.90</td></tr>
+    <tr><td>Scope accuracy</td><td>not measured</td><td>1.000</td><td>must be 1.0</td></tr>
+    <tr><td>Tool routing accuracy</td><td>not measured</td><td>1.000</td><td>at least 0.95</td></tr>
   </tbody>
 </table>
 
-The two abstention misses are the expected weakness of the extractive generator, which always summarises whatever was retrieved. With Claude generating, the system prompt's abstention rule handles these cases, and `make eval_live` produces the same report against the live index and model for comparison.
+The answerability gate closed the two abstention misses of version 1, and the stronger extractive generator lifted fact recall. `make eval_live` runs the same suite against the live index and Claude, with Claude also acting as a faithfulness judge, and writes a markdown report next to the JSON results.
 
 ## Repository layout
 
@@ -179,12 +194,16 @@ The two abstention misses are the expected weakness of the extractive generator,
 RootCanonAI
 ├── backend/app
 │   ├── api/                 routes, schemas, auth, rate limiting, container
-│   ├── clinical/            deterministic tools and the UK dental formulary
-│   ├── generation/          prompts, RAG pipeline, citation validator
+│   ├── clinical/            formulary tools, query understanding, tool router, safety screen
+│   ├── knowledge/           reviewed lexicon, safety rules and supersession graph (YAML)
+│   ├── generation/          prompts, RAG pipeline, citations, faithfulness, answerability
 │   ├── guardrails/          emergency triage, PII redaction, scope and injection
-│   ├── llm/                 Anthropic, OpenAI and Ollama providers, factory
+│   ├── llm/                 Anthropic, OpenAI and Ollama providers, router with fallbacks
 │   ├── observability/       Prometheus metrics
 │   ├── retrieval/           embedder, BM25, vector stores, reranker, hybrid
+│   ├── audit.py             keyed hash audit log, feedback and governance summary
+│   ├── cache.py             Redis or in process answer cache
+│   ├── cli.py               ask, understand, screen and serve from the terminal
 │   ├── config.py            typed settings
 │   ├── domain.py            documents, chunks, evidence grades, licences
 │   └── main.py              FastAPI application factory
@@ -195,13 +214,15 @@ RootCanonAI
 │   ├── pipeline.py          harvest, deduplicate, chunk, embed, index
 │   ├── seed.py              hand checked UK guidance seed set
 │   └── cli.py               ingest, seed and stats commands
-├── evaluation/              golden questions and the evaluation harness
+├── evaluation/              golden questions, harness, thresholds and gate
 ├── frontend/                React and TypeScript clinician interface
 ├── demo/                    standalone interactive demo and its template
-├── docs/                    architecture diagram source and poster
+├── docs/                    architecture diagrams, clinical safety case and decision records
+├── deploy/                  Prometheus, alert rules and Grafana dashboard
+├── .github/                 CI, dependabot and contribution templates
 ├── scripts/                 demo and diagram builders
 ├── tests/                   unit, pipeline and API tests
-├── compose.yaml             API, Qdrant, Redis, frontend, Ollama, Prometheus
+├── compose.yaml             API, Qdrant, Redis, frontend, Ollama, Prometheus, Grafana
 └── Makefile                 every common task
 ```
 
@@ -224,14 +245,25 @@ make up                       # API, Qdrant, Redis and the interface in containe
 make ingest                   # harvest every source into Qdrant (several hours)
 make ingest_quick             # a capped harvest for development
 make test                     # unit, pipeline and API tests with coverage
-make eval                     # offline evaluation report
+make eval_gate                # offline evaluation with the CI thresholds
+make check                    # lint, types, tests and the gate, as CI runs them
 ```
+
+From the terminal, against the seed set with no index or key:
+
+```bash
+root-canon ask "Patient on Xarelto has toothache, can I give Nurofen?"
+root-canon understand "max articaine for a 22 kg child"
+root-canon screen --planned amoxicillin --current warfarin --context "penicillin allergy"
+```
+
+The container stack serves the interface on port 8080, Prometheus on 9090 and a provisioned Grafana dashboard on 3000, with alert rules for unsupported figures, weak claim support, abstention spikes and provider fallbacks.
 
 Without an API key the service still runs end to end using the extractive generator, which makes local development and testing possible offline.
 
 ## Configuration
 
-All settings are environment variables with the `RC_` prefix, read by `backend/app/config.py`. The most important are:
+All settings are environment variables with the `RC_` prefix, read by `backend/app/config.py` and listed in `.env.example`; list settings take comma separated values. The most important are:
 
 <table>
   <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
@@ -245,6 +277,12 @@ All settings are environment variables with the `RC_` prefix, read by `backend/a
     <tr><td><code>RC_MIN_EVIDENCE_SCORE</code></td><td>0.20</td><td>below this the system abstains</td></tr>
     <tr><td><code>RC_EVIDENCE_WEIGHT</code></td><td>0.15</td><td>weight of the evidence grade in ranking</td></tr>
     <tr><td><code>RC_RECENCY_HALF_LIFE_YEARS</code></td><td>8</td><td>recency decay for research</td></tr>
+    <tr><td><code>RC_LLM_FALLBACKS</code></td><td>openai</td><td>providers tried in order when the primary fails, before the extractive generator</td></tr>
+    <tr><td><code>RC_MIN_QUERY_COVERAGE</code></td><td>0.20</td><td>below this share of the question's specific terms in the evidence the system abstains</td></tr>
+    <tr><td><code>RC_MIN_FAITHFULNESS</code></td><td>0.5</td><td>claim support needed for an answer to count as grounded</td></tr>
+    <tr><td><code>RC_TOOL_ROUTING</code></td><td>true</td><td>run deterministic tools automatically from the question</td></tr>
+    <tr><td><code>RC_ADMIN_API_KEYS</code></td><td>empty</td><td>keys allowed to read the governance summary</td></tr>
+    <tr><td><code>RC_AUDIT_SALT</code></td><td>local value</td><td>secret for keyed question hashes; set a long random value in production</td></tr>
     <tr><td><code>NCBI_API_KEY</code></td><td>empty</td><td>raises PubMed throughput from 3 to 10 requests per second</td></tr>
     <tr><td><code>NICE_SYNDICATION_API_KEY</code></td><td>empty</td><td>enables the NICE connector</td></tr>
   </tbody>
@@ -256,13 +294,20 @@ All settings are environment variables with the `RC_` prefix, read by `backend/a
   <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
   <tbody>
     <tr><td>POST</td><td><code>/v1/ask</code></td><td>Complete cited answer with sources, coverage and safety flags</td></tr>
-    <tr><td>POST</td><td><code>/v1/ask/stream</code></td><td>Server sent events: meta, emergency, sources, token, final</td></tr>
+    <tr><td>POST</td><td><code>/v1/ask/stream</code></td><td>Server sent events: meta, emergency, tools, sources, token, final</td></tr>
+    <tr><td>POST</td><td><code>/v1/understand</code></td><td>Entities, triage and tool cards for a question, without retrieval</td></tr>
+    <tr><td>POST</td><td><code>/v1/feedback</code></td><td>Clinician rating of an answer by request id, with reasons</td></tr>
     <tr><td>POST</td><td><code>/v1/search</code></td><td>Hybrid evidence search with source type and evidence filters</td></tr>
     <tr><td>POST</td><td><code>/v1/tools/regimen</code></td><td>SDCEP regimen for a drug and age</td></tr>
     <tr><td>POST</td><td><code>/v1/tools/anaesthetic</code></td><td>Local anaesthetic maximum dose by weight</td></tr>
     <tr><td>POST</td><td><code>/v1/tools/interactions</code></td><td>Interactions among a list of medicines</td></tr>
+    <tr><td>POST</td><td><code>/v1/tools/screen</code></td><td>Medication safety screen against medicines, conditions and allergies</td></tr>
+    <tr><td>GET</td><td><code>/v1/tools/formulary</code></td><td>Regimens, anaesthetics and interaction drugs on file, with review date</td></tr>
+    <tr><td>GET</td><td><code>/v1/knowledge</code></td><td>Index manifest and review dates of every rule set, including supersession rules</td></tr>
+    <tr><td>GET</td><td><code>/v1/audit/summary</code></td><td>Governance figures from the audit and feedback logs (admin key)</td></tr>
+    <tr><td>GET</td><td><code>/ready</code></td><td>Readiness: the index is loaded and can answer</td></tr>
     <tr><td>GET</td><td><code>/v1/tools/adrenaline</code></td><td>Anaphylaxis adrenaline dose by age</td></tr>
-    <tr><td>GET</td><td><code>/health</code></td><td>Index size, active provider and cache status</td></tr>
+    <tr><td>GET</td><td><code>/health</code></td><td>Index size, provider chain with circuit states and cache backend</td></tr>
     <tr><td>GET</td><td><code>/metrics</code></td><td>Prometheus metrics</td></tr>
   </tbody>
 </table>
@@ -281,7 +326,9 @@ The code is released under the Apache 2.0 licence. Content in the knowledge base
 
 * The interaction checker is a curated dental subset and is not a replacement for the BNF interactions appendix.
 * SDCEP pages are harvested from HTML, so a site redesign requires updating the extractor.
-* Planned: a BNF connector for licensed organisations, a graph of guideline updates so superseded advice is demoted automatically, and an LLM judged faithfulness metric alongside the current deterministic checks.
+* The supersession graph and the safety rules are curated by hand; each change should be reviewed by a clinician and dated in its file.
+* Done in version 2: the guideline supersession graph and a model judged faithfulness metric alongside the deterministic checks.
+* Planned: a BNF connector for licensed organisations, renal and hepatic dose adjustment in the deterministic tools, and automatic detection of new guideline editions during ingestion.
 
 ## Disclaimer
 

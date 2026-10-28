@@ -26,6 +26,7 @@ from backend.app.domain import Chunk, SourceDocument
 from backend.app.logging_setup import get_logger
 from backend.app.retrieval.bm25 import BM25Index
 from backend.app.retrieval.embedder import build_embedder
+from backend.app.retrieval.supersession import default_graph
 from backend.app.retrieval.vector_store import InMemoryVectorStore, QdrantVectorStore, VectorStore
 from ingestion.processing.chunker import chunk_document, contextualise
 from ingestion.processing.dedup import Deduplicator
@@ -69,7 +70,7 @@ def connector_kwargs(source: str, config: dict) -> list[dict]:
 
 
 async def harvest(sources: list[str], config: dict, raw_dir: Path, limit_per_job: int | None) -> None:
-    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir.mkdir(parents=True, exist_ok=True)  # noqa: ASYNC240 - one call before any network I/O
     for source in [s for s in SOURCE_ORDER if s in sources]:
         out = raw_dir / f"{source}.jsonl"
         seen_ids: set[str] = set()
@@ -111,6 +112,7 @@ def index_documents(settings: Settings, documents: Iterable[SourceDocument]) -> 
     embedder = build_embedder(settings.embedding_backend, settings.embedding_model, settings.embedding_dim)
     store = build_store(settings, embedder.dim)
     dedup = Deduplicator()
+    graph = default_graph()
     stats: Counter[str] = Counter()
     licences: Counter[str] = Counter()
     bm25_ids: list[str] = []
@@ -133,6 +135,8 @@ def index_documents(settings: Settings, documents: Iterable[SourceDocument]) -> 
         stats[f"source:{document.source}"] += 1
         licences[document.licence.value] += 1
         for chunk in chunk_document(document):
+            if graph.find(chunk) is not None:
+                stats["superseded_chunks"] += 1
             batch.append(chunk)
             bm25_ids.append(chunk.chunk_id)
             bm25_texts.append(f"{chunk.title} {chunk.section or ''} {chunk.text}")
@@ -150,6 +154,7 @@ def index_documents(settings: Settings, documents: Iterable[SourceDocument]) -> 
         "documents_indexed": stats["documents_indexed"],
         "duplicates_dropped": dedup.dropped,
         "chunks": stats["chunks"],
+        "superseded_chunks": stats["superseded_chunks"],
         "by_source": {k.split(":", 1)[1]: v for k, v in stats.items() if k.startswith("source:")},
         "licences": dict(licences),
         "embedding_model": settings.embedding_model if settings.embedding_backend != "hashing" else "hashing",

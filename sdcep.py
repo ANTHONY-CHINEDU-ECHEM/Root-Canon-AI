@@ -10,6 +10,7 @@ an index built from these pages.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Any
 
 from lxml import html as lxml_html
 
@@ -29,7 +30,7 @@ def extract_guidance(page_html: str) -> tuple[str, list[tuple[str, str]]]:
     title_nodes = container.xpath(".//h1")
     title = " ".join(title_nodes[0].text_content().split()) if title_nodes else "SDCEP guidance"
     sections: list[tuple[str, str]] = []
-    heading, buffer = "GUIDANCE", []
+    heading, buffer = "GUIDANCE", list[str]()
     for element in container.iter():
         if element.tag in {"h2", "h3"}:
             if buffer:
@@ -49,7 +50,7 @@ class SDCEPConnector(SourceConnector):
     requests_per_second = 0.5
     respect_robots = True
 
-    def __init__(self, urls: list[str], **options: object) -> None:
+    def __init__(self, urls: list[str], **options: Any) -> None:
         super().__init__(**options)
         self.urls = urls
 
@@ -57,7 +58,7 @@ class SDCEPConnector(SourceConnector):
         for count, url in enumerate(self.urls, start=1):
             try:
                 response = await self.get(url)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 self.log.warning("sdcep_fetch_failed", url=url, error=str(exc))
                 continue
             title, sections = extract_guidance(response.text)

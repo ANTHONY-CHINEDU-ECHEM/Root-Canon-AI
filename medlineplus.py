@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import AsyncIterator
+from typing import Any
 
 from lxml import etree
 
@@ -48,7 +49,7 @@ class MedlinePlusConnector(SourceConnector):
     name = "medlineplus"
     requests_per_second = 1.5  # NLM asks for no more than 85 requests per minute
 
-    def __init__(self, topics: list[str], **options: object) -> None:
+    def __init__(self, topics: list[str], **options: Any) -> None:
         super().__init__(**options)
         self.topics = topics
 

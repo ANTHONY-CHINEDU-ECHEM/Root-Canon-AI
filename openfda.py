@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from datetime import date
+from typing import Any
 
 from backend.app.domain import Licence, SourceDocument, SourceType
 from ingestion.sources.base import SourceConnector
@@ -68,7 +69,7 @@ class OpenFDALabelConnector(SourceConnector):
     name = "openfda"
     requests_per_second = 3.5
 
-    def __init__(self, generic_names: list[str], per_drug: int = 3, **options: object) -> None:
+    def __init__(self, generic_names: list[str], per_drug: int = 3, **options: Any) -> None:
         super().__init__(**options)
         self.generic_names = generic_names
         self.per_drug = per_drug
@@ -84,7 +85,7 @@ class OpenFDALabelConnector(SourceConnector):
                 params["api_key"] = self.api_key
             try:
                 response = await self.get(API, params=params)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 self.log.warning("openfda_lookup_failed", generic=generic, error=str(exc))
                 continue
             for record in response.json().get("results", []):

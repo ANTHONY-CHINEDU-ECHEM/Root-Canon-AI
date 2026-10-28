@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from datetime import date
+from typing import Any
 
 from lxml import etree
 
@@ -55,7 +56,7 @@ class EuropePMCConnector(SourceConnector):
     name = "europepmc"
     requests_per_second = 5.0
 
-    def __init__(self, query: str, include_full_text: bool = True, **options: object) -> None:
+    def __init__(self, query: str, include_full_text: bool = True, **options: Any) -> None:
         super().__init__(**options)
         self.query = query
         self.include_full_text = include_full_text
@@ -81,7 +82,7 @@ class EuropePMCConnector(SourceConnector):
                     try:
                         xml = await self.get(f"{API}/{pmcid}/fullTextXML")
                         sections = parse_jats_sections(xml.content)
-                    except Exception as exc:  # noqa: BLE001 - one bad record must not stop the run
+                    except Exception as exc:
                         self.log.warning("europepmc_fulltext_failed", pmcid=pmcid, error=str(exc))
                 if not sections and record.get("abstractText"):
                     sections = [("ABSTRACT", record["abstractText"])]

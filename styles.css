@@ -183,3 +183,40 @@ td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 footer { max-width: 1440px; margin: 0 auto; padding-block: 0 30px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .caret { animation: none; } * { transition: none !important; } }
 #root { min-height: 100%; }
+
+/* Version 2: deterministic tool cards, patient context, feedback, superseded sources, safety screen. */
+.toolcards { display: grid; gap: 8px; }
+.toolcard { border: 1px solid var(--line); border-left: 4px solid var(--guide); border-radius: 8px; padding: 10px 12px; background: var(--surface); display: grid; gap: 4px; }
+.toolcard.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+.toolcard.danger { border-left-color: var(--alert); background: var(--alert-soft); }
+.toolcard header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.toolcard-kind { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.toolcard-badge { font-size: 10.5px; border: 1px solid var(--guide); color: var(--guide); border-radius: 999px; padding: 1px 7px; }
+.toolcard h3 { margin: 0; font-size: 14.5px; font-weight: 600; }
+.toolcard-summary { margin: 0; font: 600 15px var(--font-mono); font-variant-numeric: tabular-nums; }
+.toolcard-verify { margin: 0; font-size: 12px; color: var(--muted); }
+.flags { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.flag { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.flag b { text-transform: uppercase; font-size: 10.5px; letter-spacing: .06em; }
+.flag.danger b { color: var(--alert); }
+.flag.warn b { color: var(--amber); }
+.context { width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); font-size: 13px; }
+.thread-head { justify-content: space-between; align-items: flex-start; }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.feedback { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.fb { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 12px; cursor: pointer; font-size: 12.5px; }
+.fb:hover { border-color: var(--accent); color: var(--accent); }
+.feedback-form { display: grid; gap: 8px; width: 100%; }
+.feedback-comment { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--bg); font-size: 13px; }
+.feedback-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.feedback-done { margin: 0; font-size: 12.5px; color: var(--muted); }
+.src.superseded { opacity: .78; border-style: dashed; }
+.superseded-note { font-size: 12px; background: var(--amber-soft); color: var(--amber); border-radius: 6px; padding: 5px 8px; }
+.superseded-note a { color: inherit; font-weight: 600; }
+.trace { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tools input:not([type]) { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--bg); }
+@media (max-width: 720px) {
+  .row.three { grid-template-columns: 1fr; }
+  .flag { grid-template-columns: 1fr; gap: 2px; }
+}

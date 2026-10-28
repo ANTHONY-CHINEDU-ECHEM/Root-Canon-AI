@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from datetime import date
+from typing import Any
 
 from lxml import html as lxml_html
 
@@ -22,7 +23,7 @@ def html_to_sections(body_html: str) -> list[tuple[str, str]]:
     """Split GOV.UK body HTML into (heading, text) sections on h2 and h3."""
     tree = lxml_html.fromstring(f"<div>{body_html}</div>")
     sections: list[tuple[str, str]] = []
-    heading, buffer = "INTRODUCTION", []
+    heading, buffer = "INTRODUCTION", list[str]()
     for element in tree.iter():
         if element.tag in {"h2", "h3"}:
             if buffer:
@@ -41,7 +42,7 @@ class GovUKContentConnector(SourceConnector):
     name = "govuk"
     requests_per_second = 2.0
 
-    def __init__(self, base_paths: list[str], **options: object) -> None:
+    def __init__(self, base_paths: list[str], **options: Any) -> None:
         super().__init__(**options)
         self.base_paths = base_paths
 

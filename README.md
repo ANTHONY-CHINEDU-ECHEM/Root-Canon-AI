@@ -60,7 +60,7 @@ A static poster version of the same architecture is kept at `docs/architecture.s
 
 ## Interactive demo
 
-
+Root Canon AI.html
 
 The demo is a single page that runs entirely in the browser on the bundled UK guidance seed set. It performs real BM25 retrieval over chunked guidance, applies the same redaction, emergency triage and scope rules as the backend, composes an extractive answer in which every sentence carries a numbered citation, and checks every clinical figure against the cited source. The clinical tools tab exposes the deterministic regimen lookup, local anaesthetic ceiling, adrenaline dosing by age and interaction checker.
 
